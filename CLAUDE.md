@@ -19,6 +19,9 @@ Personal job-discovery pipeline. Crawls ATS JSON endpoints → normalize → ded
 ## Eligibility (geo gate)
 `packages/core/src/filters/eligibility.ts` is the single source of truth for "where can I work" (design §14.3): India (incl. Bengaluru), remote-doable-from-India (generic/global remote, Asia/APAC), Dubai/UAE, Singapore. Allowlist logic — a remote role pinned to a non-eligible city (e.g. "San Francisco", "Remote - US") is dropped. It's a coarse gate applied in every candidate query (stage-0/digest, triage, enrich, retrieve, eval); the LLM judge still reports fine-grained `eligibility_risk`. `jr stats` shows the eligible count.
 
+## Role target (what we search for)
+`packages/core/src/filters/roles.ts` is the single source of truth for target roles — a positive allowlist (stage-0 is otherwise a denylist that keeps everything non-blocked). Families: AI/ML/LLM engineer (incl. research/applied scientist, member of technical staff), Forward Deployed / Solutions engineer, Backend/Platform/Infra, General SWE/Full-stack (SDE). Applied in every candidate query alongside the geo gate. Funnel in `jr stats`: open → eligible (geo) → targeted (geo + role). Note "solutions engineer/architect" are intentionally NOT in the denylist (they're the Forward-Deployed family); "sales engineer" stays blocked.
+
 ## Invariants (do not break)
 - **Adapters never write to `jobs` directly.** An adapter only `fetch`es and `normalize`s. The pipeline owns raw storage, dedupe, and the `jobs` upsert.
 - **Raw payloads are immutable.** `raw_postings` is append-on-change (keyed by `content_hash`). To fix a bad parser, replay from raw — never re-crawl to repair.

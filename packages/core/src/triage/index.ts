@@ -3,6 +3,7 @@ import type { Db } from "../db/client.js";
 import { applications, companies, feedback, jobs } from "../db/schema.js";
 import { TITLE_BLOCKLIST } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
+import { roleTargetClause } from "../filters/roles.js";
 
 const notBlockedTitle = () =>
   TITLE_BLOCKLIST.map(
@@ -85,6 +86,8 @@ export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<
         sql`not exists (select 1 from ${feedback} f where f.job_id = ${jobs.id})`,
         sql`not exists (select 1 from ${applications} a where a.job_id = ${jobs.id})`,
         eligibilityClause("jobs"),
+
+        roleTargetClause("jobs"),
         ...notBlockedTitle(),
       ),
     )
@@ -112,6 +115,8 @@ export async function getTriageCount(db: Db, opts: TriageOptions = {}): Promise<
         sql`not exists (select 1 from ${feedback} f where f.job_id = ${jobs.id})`,
         sql`not exists (select 1 from ${applications} a where a.job_id = ${jobs.id})`,
         eligibilityClause("jobs"),
+
+        roleTargetClause("jobs"),
         ...notBlockedTitle(),
       ),
     );

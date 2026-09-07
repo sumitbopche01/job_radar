@@ -7,6 +7,7 @@ export * from "./pipeline/stats.js";
 export * from "./dedupe/index.js";
 export * from "./filters/stage0.js";
 export * from "./filters/eligibility.js";
+export * from "./filters/roles.js";
 export * from "./triage/index.js";
 export * from "./applications/index.js";
 export * from "./digest/index.js";

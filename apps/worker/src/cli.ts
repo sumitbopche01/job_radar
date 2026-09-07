@@ -211,7 +211,8 @@ async function main() {
         console.log("Job Radar stats");
         console.log(`  companies:   ${s.companies} (active ${s.companiesActive}, stale ${s.companiesStale})`);
         console.log(`  jobs open:   ${s.jobsOpen}`);
-        console.log(`  eligible:    ${s.jobsEligible}  (India / remote / Dubai / Singapore)`);
+        console.log(`  eligible:    ${s.jobsEligible}  (geo: India / remote / Dubai / Singapore)`);
+        console.log(`  targeted:    ${s.jobsTargeted}  (geo + engineering role families)`);
         console.log(`  duplicates:  ${s.jobsDuplicates}`);
         console.log(`  closed:      ${s.jobsClosed}`);
         console.log(`  new (24h):   ${s.newLast24h}`);

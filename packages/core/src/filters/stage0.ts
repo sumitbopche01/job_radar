@@ -2,6 +2,7 @@ import { and, desc, eq, gte, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { companies, jobs } from "../db/schema.js";
 import { eligibilityClause } from "./eligibility.js";
+import { roleTargetClause } from "./roles.js";
 
 /** Titles that are never relevant — kills ~most of the noise for free (design doc §7). */
 export const TITLE_BLOCKLIST = [
@@ -20,7 +21,6 @@ export const TITLE_BLOCKLIST = [
   "office manager",
   "marketing manager",
   "product marketing",
-  "solutions engineer",
   "sales engineer",
   "business development",
   "intern",
@@ -33,7 +33,6 @@ export const TITLE_BLOCKLIST = [
   "bookkeeper",
   "executive assistant",
   "chief of staff",
-  "solutions architect",
   "sourcing",
   "procurement",
   "counsel",
@@ -48,6 +47,14 @@ export const TITLE_BLOCKLIST = [
   "vice president",
   "head of",
 ];
+
+/** SQL: title passes the denylist, keyed to a table alias. */
+export function titleBlocklistClause(alias = "jobs") {
+  const title = `lower(coalesce(${alias}.title, ''))`;
+  return sql.raw(
+    "not (" + TITLE_BLOCKLIST.map((t) => `${title} like '%${t.toLowerCase()}%'`).join(" or ") + ")",
+  );
+}
 
 export interface Stage0Options {
   sinceDays?: number; // posted within N days
@@ -106,6 +113,7 @@ export async function stage0Candidates(db: Db, opts: Stage0Options = {}): Promis
         // fresh: posted recently, or (no posted date) first seen recently
         or(gte(jobs.postedAt, since), and(isNull(jobs.postedAt), gte(jobs.firstSeenAt, since))),
         eligibilityClause("jobs"),
+        roleTargetClause("jobs"),
         ...notBlocked,
       ),
     )

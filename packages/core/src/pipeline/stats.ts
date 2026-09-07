@@ -2,6 +2,8 @@ import { sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { companies, jobs } from "../db/schema.js";
 import { eligibilityClause } from "../filters/eligibility.js";
+import { roleTargetClause } from "../filters/roles.js";
+import { titleBlocklistClause } from "../filters/stage0.js";
 
 export interface Stats {
   companies: number;
@@ -9,6 +11,7 @@ export interface Stats {
   companiesStale: number;
   jobsOpen: number;
   jobsEligible: number;
+  jobsTargeted: number;
   jobsClosed: number;
   jobsDuplicates: number;
   newLast24h: number;
@@ -28,6 +31,7 @@ export async function getStats(db: Db): Promise<Stats> {
     .select({
       open: sql<number>`count(*) filter (where closed_at is null and canonical_job_id is null)::int`,
       eligible: sql<number>`count(*) filter (where closed_at is null and canonical_job_id is null and ${eligibilityClause("jobs")})::int`,
+      targeted: sql<number>`count(*) filter (where closed_at is null and canonical_job_id is null and ${eligibilityClause("jobs")} and ${roleTargetClause("jobs")} and ${titleBlocklistClause("jobs")})::int`,
       closed: sql<number>`count(*) filter (where closed_at is not null)::int`,
       dupes: sql<number>`count(*) filter (where canonical_job_id is not null)::int`,
       new24: sql<number>`count(*) filter (where first_seen_at > now() - interval '24 hours')::int`,
@@ -46,6 +50,7 @@ export async function getStats(db: Db): Promise<Stats> {
     companiesStale: c?.stale ?? 0,
     jobsOpen: j?.open ?? 0,
     jobsEligible: j?.eligible ?? 0,
+    jobsTargeted: j?.targeted ?? 0,
     jobsClosed: j?.closed ?? 0,
     jobsDuplicates: j?.dupes ?? 0,
     newLast24h: j?.new24 ?? 0,
