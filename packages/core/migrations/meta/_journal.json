@@ -22,6 +22,13 @@
       "when": 1788782601441,
       "tag": "0002_flippant_sumo",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788797549496,
+      "tag": "0003_overjoyed_shard",
+      "breakpoints": true
     }
   ]
 }

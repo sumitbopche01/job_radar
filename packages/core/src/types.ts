@@ -5,7 +5,9 @@ export type AtsProvider =
   | "workday"
   | "smartrecruiters"
   | "recruitee"
-  | "workable";
+  | "workable"
+  // non-ATS ingestion sources (HN, email); no adapter — crawl skips them
+  | "external";
 
 export type RemoteType = "remote" | "hybrid" | "onsite" | "unknown";
 

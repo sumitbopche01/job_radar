@@ -95,6 +95,26 @@ export async function discoverTokens(
   return { processed: entries.length, verified, added: after - before, dead };
 }
 
+/** Upsert one Workday company (keyed by host + site; verified by a crawl later). */
+export async function upsertWorkday(
+  db: Db,
+  r: { host: string; site: string; name?: string },
+): Promise<void> {
+  await db
+    .insert(companies)
+    .values({
+      name: r.name?.trim() || prettyFromDomain(r.host) || r.host,
+      atsProvider: "workday",
+      workdayTenant: r.host,
+      workdaySite: r.site,
+      discoveredVia: "manual",
+    })
+    .onConflictDoUpdate({
+      target: [companies.workdayTenant, companies.workdaySite],
+      set: { name: r.name?.trim() || sql`companies.name` },
+    });
+}
+
 /** Upsert one detected/resolved board into the registry (deduped by provider+token). */
 export async function upsertDiscovered(
   db: Db,

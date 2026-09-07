@@ -40,6 +40,9 @@ export const atsProviderEnum = pgEnum("ats_provider", [
   "smartrecruiters",
   "recruitee",
   "workable",
+  // non-ATS sources (HN "Who's hiring", email alerts): crawl skips these
+  // (no adapter); they hold ingested job rows keyed by company name.
+  "external",
 ]);
 
 export const companyStatusEnum = pgEnum("company_status", ["active", "stale", "dead"]);
@@ -85,6 +88,8 @@ export const companies = pgTable(
   },
   (t) => [
     uniqueIndex("companies_provider_token_uq").on(t.atsProvider, t.boardToken),
+    // Workday has no board_token; dedupe by tenant host + site instead.
+    uniqueIndex("companies_workday_uq").on(t.workdayTenant, t.workdaySite),
     index("companies_status_idx").on(t.status),
   ],
 );

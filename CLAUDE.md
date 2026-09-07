@@ -40,7 +40,7 @@ One file in `packages/core/src/adapters/`, implementing `SourceAdapter` (`packag
 - `apps/web` — Next.js triage UI (P1, not built yet).
 
 ## Phase status
-- **P0 (done):** crawl → normalize → dedupe → stage-0 filter → digest. No UI, no LLM. Adapters now cover **6 ATS providers**: Greenhouse, Lever, Ashby, Recruitee, Workable, SmartRecruiters (SmartRecruiters is list-only — no description without a per-job detail call). Detection recognizes all 6.
+- **P0 (done):** crawl → normalize → dedupe → stage-0 filter → digest. No UI, no LLM. Adapters cover **7 ATS providers**: Greenhouse, Lever, Ashby, Recruitee, Workable, SmartRecruiters, Workday (SmartRecruiters + Workday are list-only — no description/dates-are-relative without a per-job detail call). Detection recognizes the first 6. `external` is a non-ATS pseudo-provider (HN/email) with no adapter — crawl skips it.
 - **P1 (current):** Next.js keyboard triage UI (`apps/web`, :3005), feedback capture, applications pipeline board, `jr export` CSV for the job-search skill.
   - Triage queue = open + canonical + fresh + not-blocklisted + not-yet-actioned. `s` shortlist, `x` reject (+one-key reason → `feedback`), `a` applied, `o` open, `j/k` nav, `/` search.
   - Actions live in `apps/web/app/actions.ts`; DB pool singleton in `apps/web/lib/db.ts`.
@@ -54,4 +54,6 @@ One file in `packages/core/src/adapters/`, implementing `SourceAdapter` (`packag
   - CLI: `jr discover domain <d>` / `jr discover yc [--recent --limit N]` / `jr discover domains <file>` / `jr discover tokens [file]` / `jr discover ... --agent` / `jr liveness`.
   - Detection ladder (each step only runs if the previous found nothing): **regex** on careers-page HTML → **guess-and-probe** (derive the token from the domain/company name, probe all 6 providers — keyless, recovers ~2/3 of JS-rendered misses) → **resolution agent** (LLM, key-gated, truly custom cases). All three verify by probing the endpoint before adding.
   - Highest-yield bulk seed is still a verified **token list** (`data/discovery-tokens.txt`). Workday is unimplemented (P4).
-- **P4 (next):** email-alert ingestion, Workday adapter, HN Who's Hiring parser.
+- **P4 (done):** Workday adapter (paginated POST; `workday_tenant` holds the full host, `workday_site` the career site; total is read from page 0 only). Non-ATS ingestion (`packages/core/src/ingest`): HN "Who's hiring" parser (`hn.ts` — latest thread via HN Algolia, pipe-delimited comments) and job-alert email parser (`email.ts` — LinkedIn/Wellfound/Naukri/Instahyre link patterns). Both go through `ingestPostings`, which stores each as a `jobs` row under an `external` company (deduped by normalized name); the geo/role gates, dedupe, triage and digest treat them like any job. CLI: `jr ingest hn`, `jr ingest email <file>`, `jr discover workday <host> <site>`.
+  - Email ingestion is file-based (`jr ingest email saved.html`) — no IMAP dependency/creds. Live IMAP polling is a thin future wrapper around `parseAlertEmail`.
+- **P5 (next):** drafting handoff to the job-search skill (mostly not built here — `jr` already exposes the JD + rubric).

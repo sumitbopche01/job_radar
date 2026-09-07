@@ -2,7 +2,7 @@
 
 Personal job-discovery pipeline. Crawls source-of-truth ATS JSON endpoints (Greenhouse, Lever, Ashby), normalizes and dedupes into Postgres, and emails a daily digest. See [`design.md`](design.md) for the full rationale and [`CLAUDE.md`](CLAUDE.md) for the operating contract.
 
-**Status: P0–P3 in place** — crawl → normalize → dedupe → stage-0 (geo + role gates) → digest; a keyboard triage UI + applications pipeline + CSV export; the matching layer (enrichment → hybrid FTS+vector retrieval → LLM judge → precision@10 eval); and company discovery (ATS detection crawler with endpoint verification, token-list/YC seed sources, liveness loop, and a resolution agent). The LLM steps (judge, enrichment, resolution agent) need API keys; everything else runs without them.
+**Status: P0–P4 in place** — crawl → normalize → dedupe → stage-0 (geo + role gates) → digest; a keyboard triage UI + applications pipeline + CSV export; the matching layer (enrichment → hybrid FTS+vector retrieval → LLM judge → precision@10 eval); company discovery (ATS detection with endpoint verification across 7 providers, token-list/YC seeds, liveness loop, resolution agent); and non-ATS ingestion (HN "Who's hiring" + job-alert emails). The LLM steps (judge, enrichment, resolution agent) need API keys; everything else runs without them.
 
 ## Quickstart
 
@@ -53,7 +53,17 @@ pnpm jr discover yc --agent --agent-limit 25   # resolve regex misses with the L
 pnpm jr liveness                       # active→stale→dead, report failing %
 ```
 
-Detection is a three-step ladder, each verifying tokens by probing the endpoint (dead tokens never enter the registry): **regex** on careers HTML → **guess-and-probe** (token derived from the domain/name, probed across all 6 providers — keyless, recovers most JS-rendered misses) → **resolution agent** (LLM, `--agent`, needs `ANTHROPIC_API_KEY`) for truly custom cases. The highest-yield bulk seed is a verified token list.
+Detection is a three-step ladder, each verifying tokens by probing the endpoint (dead tokens never enter the registry): **regex** on careers HTML → **guess-and-probe** (token derived from the domain/name, probed across providers — keyless, recovers most JS-rendered misses) → **resolution agent** (LLM, `--agent`, needs `ANTHROPIC_API_KEY`) for truly custom cases. The highest-yield bulk seed is a verified token list.
+
+### Non-ATS ingestion (P4)
+
+```bash
+pnpm jr ingest hn                    # parse the latest HN "Who is hiring" thread
+pnpm jr ingest email saved.html      # parse a saved job-alert email (LinkedIn/Wellfound/…)
+pnpm jr discover workday nvidia.wd5.myworkdayjobs.com NVIDIAExternalCareerSite NVIDIA
+```
+
+HN comments and alert emails are stored as `jobs` under an `external` company; the geo/role gates, dedupe, triage and digest treat them like any other job. Email ingestion is file-based (save/forward the alert, then run it) — no IMAP setup needed.
 
 ### Matching (P2 — needs `OPENAI_API_KEY` + `ANTHROPIC_API_KEY`)
 

@@ -13,9 +13,12 @@ import {
   ensureSearchIndexes,
   enrichJobs,
   fetchYcDomains,
+  ingestAlertEmail,
+  ingestHiringThread,
   resolveAtsWithAgent,
   runLiveness,
   upsertDiscovered,
+  upsertWorkday,
   type DiscoverEntry,
   exportApplicationsCsv,
   getProfile,
@@ -134,6 +137,15 @@ async function main() {
         const sub = _[1] ?? "yc";
         const limit = num(flags.limit);
         let entries: DiscoverEntry[] = [];
+        if (sub === "workday") {
+          const host = _[2];
+          const site = _[3];
+          if (!host || !site)
+            throw new Error("usage: jr discover workday <host> <site> [name]  (host e.g. nvidia.wd5.myworkdayjobs.com)");
+          await upsertWorkday(db, { host, site, name: _.slice(4).join(" ") || undefined });
+          console.log(`✓ added workday company ${host}/${site} — crawl with: jr crawl --only workday`);
+          break;
+        }
         if (sub === "tokens") {
           const file = _[2] ?? TOKENS_PATH;
           const txt = await readFile(file, "utf8");
@@ -234,6 +246,24 @@ async function main() {
         console.log(`  stale:        ${r.stale}  (+${r.markedStale} this run)`);
         console.log(`  dead:         ${r.dead}  (+${r.markedDead} this run)`);
         console.log(`  failing:      ${r.failingPct.toFixed(1)}%  (P3 target < 2%)`);
+        break;
+      }
+      case "ingest": {
+        const sub = _[1] ?? "hn";
+        if (sub === "hn") {
+          const r = await ingestHiringThread(db, typeof flags.thread === "string" ? flags.thread : undefined);
+          console.log(`✓ ingest hn "${r.thread}": ${r.comments} comments, ${r.parsed} parsed`);
+          console.log(`  ${r.inserted} new, ${r.updated} updated, ${r.companies} companies, ${r.skipped} skipped`);
+        } else if (sub === "email") {
+          const file = _[2];
+          if (!file) throw new Error("usage: jr ingest email <file.html> [provider]");
+          const html = await readFile(file, "utf8");
+          const provider = _[3] as never;
+          const r = await ingestAlertEmail(db, html, provider);
+          console.log(`✓ ingest email (${r.provider}): ${r.parsed} parsed, ${r.inserted} new, ${r.updated} updated, ${r.skipped} skipped`);
+        } else {
+          throw new Error("usage: jr ingest [hn|email <file>]");
+        }
         break;
       }
       case "enrich": {
@@ -390,8 +420,13 @@ Usage:
   pnpm jr discover domain <d>     detect one domain's ATS (add --agent for misses)
   pnpm jr discover yc --limit 500 import YC companies, detect + register ATS
   pnpm jr discover domains <file> detect from a newline-separated domains file
+  pnpm jr discover workday <host> <site> [name]   add a Workday company
   pnpm jr discover ... --agent    resolve regex misses with the LLM agent (needs key)
   pnpm jr liveness                mark stale/dead, report failing %
+
+  P4 ingestion (non-ATS sources):
+  pnpm jr ingest hn               parse the latest HN "Who is hiring" thread
+  pnpm jr ingest email <file>     parse a saved job-alert email (LinkedIn/Wellfound/…)
   pnpm jr digest [--dry-run]      build + send the daily digest
   pnpm jr digest --top 15 --since 3
 
