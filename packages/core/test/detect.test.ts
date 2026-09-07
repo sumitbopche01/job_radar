@@ -26,6 +26,19 @@ describe("extractCandidates", () => {
     expect(c).toHaveLength(1);
   });
 
+  it("pulls recruitee / workable / smartrecruiters tokens", () => {
+    const html = `
+      <iframe src="https://personio.recruitee.com/api/offers/"></iframe>
+      <script src="https://apply.workable.com/api/v1/widget/accounts/hostaway"></script>
+      <a href="https://jobs.smartrecruiters.com/Ubisoft/12345">Apply</a>`;
+    const c = extractCandidates(html);
+    expect(c).toContainEqual({ provider: "recruitee", token: "personio" });
+    expect(c).toContainEqual({ provider: "workable", token: "hostaway" });
+    expect(c).toContainEqual({ provider: "smartrecruiters", token: "Ubisoft" });
+    // path segments must not be captured as tokens
+    expect(c.find((x) => x.token === "apply" || x.token === "accounts")).toBeUndefined();
+  });
+
   it("ignores non-ATS html", () => {
     expect(extractCandidates("<p>We are hiring! email jobs@acme.com</p>")).toHaveLength(0);
   });

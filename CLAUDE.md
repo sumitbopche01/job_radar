@@ -40,7 +40,7 @@ One file in `packages/core/src/adapters/`, implementing `SourceAdapter` (`packag
 - `apps/web` — Next.js triage UI (P1, not built yet).
 
 ## Phase status
-- **P0 (done):** Greenhouse + Lever + Ashby, seed companies, crawl → normalize → dedupe → stage-0 filter → digest. No UI, no LLM.
+- **P0 (done):** crawl → normalize → dedupe → stage-0 filter → digest. No UI, no LLM. Adapters now cover **6 ATS providers**: Greenhouse, Lever, Ashby, Recruitee, Workable, SmartRecruiters (SmartRecruiters is list-only — no description without a per-job detail call). Detection recognizes all 6.
 - **P1 (current):** Next.js keyboard triage UI (`apps/web`, :3005), feedback capture, applications pipeline board, `jr export` CSV for the job-search skill.
   - Triage queue = open + canonical + fresh + not-blocklisted + not-yet-actioned. `s` shortlist, `x` reject (+one-key reason → `feedback`), `a` applied, `o` open, `j/k` nav, `/` search.
   - Actions live in `apps/web/app/actions.ts`; DB pool singleton in `apps/web/lib/db.ts`.
@@ -52,5 +52,5 @@ One file in `packages/core/src/adapters/`, implementing `SourceAdapter` (`packag
   - Triage UI ranks by a profile's stage-2 score when `?profile=<label>` is set (else freshness).
 - **P3 (current):** company discovery (`packages/core/src/discovery`). ATS detection crawler (`detect.ts`: fetch careers pages → regex ATS tokens → **verify by probing the endpoint**, so dead tokens never enter the registry), discovery pipeline (`discover.ts`), token-list + YC seed sources (`sources.ts`), liveness loop (`liveness.ts`: active→stale→dead by failures/staleness, reports failing %), and the resolution agent (`resolveAgent.ts`, Agent 1 §16 — bounded ≤6-step tool loop for regex misses, terminates on a probe returning >0 jobs; needs ANTHROPIC_API_KEY).
   - CLI: `jr discover domain <d>` / `jr discover yc [--recent --limit N]` / `jr discover domains <file>` / `jr discover tokens [file]` / `jr discover ... --agent` / `jr liveness`.
-  - Highest-yield seed is a verified **token list** (`data/discovery-tokens.txt`), not domain detection. YC hit rate is low (oldest=defunct, newest=pre-hiring) and only greenhouse/lever/ashby are detected — adding Workable/Recruitee/SmartRecruiters/Workday adapters would materially raise it.
+  - Highest-yield seed is a verified **token list** (`data/discovery-tokens.txt`), not domain detection. The main domain-detection bottleneck is JS-rendered careers pages (→ resolution agent), not ATS coverage — adding providers mainly lifts token-list and crawl coverage. Workday is still unimplemented (P4).
 - **P4 (next):** email-alert ingestion, Workday adapter, HN Who's Hiring parser.

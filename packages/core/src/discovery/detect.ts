@@ -20,6 +20,11 @@ const RESERVED = new Set([
   "static",
   "assets",
   "images",
+  "apply",
+  "accounts",
+  "widget",
+  "companies",
+  "account",
 ]);
 
 interface Candidate {
@@ -49,6 +54,24 @@ const PATTERNS: { provider: AtsProvider; res: RegExp[] }[] = [
       /jobs\.ashbyhq\.com\/([a-zA-Z0-9_-]+)/g,
       /api\.ashbyhq\.com\/posting-api\/job-board\/([a-zA-Z0-9_-]+)/g,
       /ashbyhq\.com\/[^"'<> ]*?jobBoardName=([a-zA-Z0-9_-]+)/g,
+    ],
+  },
+  {
+    provider: "recruitee",
+    res: [/([a-zA-Z0-9-]+)\.recruitee\.com/g],
+  },
+  {
+    provider: "workable",
+    res: [
+      /apply\.workable\.com\/(?:api\/v1\/widget\/accounts\/)?([a-zA-Z0-9_-]+)/g,
+      /([a-zA-Z0-9-]+)\.workable\.com/g,
+    ],
+  },
+  {
+    provider: "smartrecruiters",
+    res: [
+      /(?:jobs|careers)\.smartrecruiters\.com\/([a-zA-Z0-9._-]+)/g,
+      /api\.smartrecruiters\.com\/v1\/companies\/([a-zA-Z0-9._-]+)/g,
     ],
   },
 ];
