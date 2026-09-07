@@ -1,0 +1,95 @@
+# Candidate ATS tokens: "provider token [name]". Verified on import (dead ones dropped).
+# Seed source for company discovery (design §3). Grow this from public token lists.
+
+# --- Greenhouse candidates ---
+greenhouse retool Retool
+greenhouse sourcegraph Sourcegraph
+greenhouse benchling Benchling
+greenhouse checkr Checkr
+greenhouse mixpanel Mixpanel
+greenhouse launchdarkly LaunchDarkly
+greenhouse pagerduty PagerDuty
+greenhouse elastic Elastic
+greenhouse confluent Confluent
+greenhouse fivetran Fivetran
+greenhouse hightouch Hightouch
+greenhouse census Census
+greenhouse miro Miro
+greenhouse grammarly Grammarly
+greenhouse coda Coda
+greenhouse wealthsimple Wealthsimple
+greenhouse justworks Justworks
+greenhouse kraken Kraken
+greenhouse fireblocks Fireblocks
+greenhouse chainalysis Chainalysis
+greenhouse plaid Plaid
+greenhouse gemini Gemini
+greenhouse anchorage Anchorage
+greenhouse alchemy Alchemy
+greenhouse clickhouse ClickHouse
+greenhouse timescale Timescale
+greenhouse starburst Starburst
+greenhouse dbtlabs dbt Labs
+greenhouse getsentry Sentry
+greenhouse grafanalabs Grafana Labs
+greenhouse harness Harness
+greenhouse newrelic New Relic
+greenhouse snyk Snyk
+greenhouse vanta Vanta
+greenhouse notion Notion
+greenhouse airbyte Airbyte
+greenhouse temporaltechnologies Temporal
+greenhouse render Render
+greenhouse replit Replit
+greenhouse webflow2 Webflow
+greenhouse canva Canva
+greenhouse muxinc Mux
+greenhouse loom Loom
+greenhouse whatnot Whatnot
+greenhouse ramp Ramp
+greenhouse mercury Mercury
+greenhouse rippling Rippling
+greenhouse deel Deel
+greenhouse oysterhr Oyster
+greenhouse remotecom Remote
+greenhouse angel Wellfound
+greenhouse gopuff Gopuff
+greenhouse nuro Nuro
+greenhouse cruise Cruise
+greenhouse waymo Waymo
+
+# --- Lever candidates ---
+lever voleon Voleon
+lever huggingface Hugging Face
+lever ro Ro
+lever attentivemobile Attentive
+lever brightwheel Brightwheel
+lever plaid Plaid
+lever palantir Palantir
+lever kaseya Kaseya
+
+# --- Ashby candidates ---
+ashby Deel Deel
+ashby mercury Mercury
+ashby runwayml Runway
+ashby Perplexityai Perplexity
+ashby together Together AI
+ashby fireworksai Fireworks AI
+ashby modal-labs Modal
+ashby baseten Baseten
+ashby replicate Replicate
+ashby clay Clay
+ashby dagster Dagster
+ashby census Census
+ashby openstore OpenStore
+ashby sardine Sardine
+ashby watershed Watershed
+ashby vercel Vercel
+ashby retool Retool
+ashby harvey Harvey
+ashby sierra Sierra
+ashby decagon Decagon
+ashby glean Glean
+ashby writer Writer
+ashby crusoe Crusoe
+ashby lambdalabs Lambda

@@ -50,4 +50,7 @@ One file in `packages/core/src/adapters/`, implementing `SourceAdapter` (`packag
   - Needs `OPENAI_API_KEY` + `ANTHROPIC_API_KEY`. Without them: FTS retrieval and eval scaffold still run; enrich/embed/judge don't.
   - CLI: `jr profiles seed|embed`, `jr enrich`, `jr retrieve <profile>`, `jr score <profile>`, `jr eval scaffold|run`.
   - Triage UI ranks by a profile's stage-2 score when `?profile=<label>` is set (else freshness).
-- **P3 (next):** company discovery (seed import + ATS detection) → 3,000 companies.
+- **P3 (current):** company discovery (`packages/core/src/discovery`). ATS detection crawler (`detect.ts`: fetch careers pages → regex ATS tokens → **verify by probing the endpoint**, so dead tokens never enter the registry), discovery pipeline (`discover.ts`), token-list + YC seed sources (`sources.ts`), liveness loop (`liveness.ts`: active→stale→dead by failures/staleness, reports failing %), and the resolution agent (`resolveAgent.ts`, Agent 1 §16 — bounded ≤6-step tool loop for regex misses, terminates on a probe returning >0 jobs; needs ANTHROPIC_API_KEY).
+  - CLI: `jr discover domain <d>` / `jr discover yc [--recent --limit N]` / `jr discover domains <file>` / `jr discover tokens [file]` / `jr discover ... --agent` / `jr liveness`.
+  - Highest-yield seed is a verified **token list** (`data/discovery-tokens.txt`), not domain detection. YC hit rate is low (oldest=defunct, newest=pre-hiring) and only greenhouse/lever/ashby are detected — adding Workable/Recruitee/SmartRecruiters/Workday adapters would materially raise it.
+- **P4 (next):** email-alert ingestion, Workday adapter, HN Who's Hiring parser.

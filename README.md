@@ -2,7 +2,7 @@
 
 Personal job-discovery pipeline. Crawls source-of-truth ATS JSON endpoints (Greenhouse, Lever, Ashby), normalizes and dedupes into Postgres, and emails a daily digest. See [`design.md`](design.md) for the full rationale and [`CLAUDE.md`](CLAUDE.md) for the operating contract.
 
-**Status: P2 in place** — crawl → normalize → dedupe → stage-0 → digest, a keyboard triage UI + applications pipeline + CSV export, and the matching layer: enrichment (extract → distilled summary → embed), stage-1 hybrid retrieval (FTS + pgvector via RRF), a stage-2 LLM judge, and an eval harness for precision@10. The LLM steps need API keys (below); FTS retrieval and eval scaffolding run without them.
+**Status: P0–P3 in place** — crawl → normalize → dedupe → stage-0 (geo + role gates) → digest; a keyboard triage UI + applications pipeline + CSV export; the matching layer (enrichment → hybrid FTS+vector retrieval → LLM judge → precision@10 eval); and company discovery (ATS detection crawler with endpoint verification, token-list/YC seed sources, liveness loop, and a resolution agent). The LLM steps (judge, enrichment, resolution agent) need API keys; everything else runs without them.
 
 ## Quickstart
 
@@ -41,6 +41,19 @@ Keyboard: `j`/`k` move · `s` shortlist · `x` reject (then a one-key reason) ·
 | `pnpm jr digest [--dry-run --top N --since D]` | build + send the daily digest |
 | `pnpm jr export [path]` | write applications.csv for the job-search skill |
 | `pnpm jr stats` | show counts |
+
+### Company discovery (P3)
+
+```bash
+pnpm jr discover domain vercel.com     # detect one company's ATS (verifies the token)
+pnpm jr discover tokens                # import + verify apps/worker/data/discovery-tokens.txt
+pnpm jr discover yc --recent --limit 500   # sweep YC companies, detect + register
+pnpm jr discover domains mylist.txt    # detect from a newline-separated domains file
+pnpm jr discover yc --agent --agent-limit 25   # resolve regex misses with the LLM agent
+pnpm jr liveness                       # active→stale→dead, report failing %
+```
+
+Detection fetches careers pages, regexes ATS board links, and **verifies each by probing the endpoint** — dead tokens never enter the registry. Regex misses (JS-rendered pages) go to the bounded resolution agent (needs `ANTHROPIC_API_KEY`). The highest-yield seed is a verified token list.
 
 ### Matching (P2 — needs `OPENAI_API_KEY` + `ANTHROPIC_API_KEY`)
 

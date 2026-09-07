@@ -6,9 +6,17 @@ import { dirname, resolve } from "node:path";
 import {
   createDb,
   dedupe,
+  detectAts,
+  discoverCompanies,
+  discoverTokens,
   embedProfiles,
   ensureSearchIndexes,
   enrichJobs,
+  fetchYcDomains,
+  resolveAtsWithAgent,
+  runLiveness,
+  upsertDiscovered,
+  type DiscoverEntry,
   exportApplicationsCsv,
   getProfile,
   getStats,
@@ -31,6 +39,7 @@ import { runMigrate } from "./migrate.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SEED_PATH = resolve(__dirname, "../data/companies.seed.json");
 const PROFILES_PATH = resolve(__dirname, "../data/profiles.seed.json");
+const TOKENS_PATH = resolve(__dirname, "../data/discovery-tokens.txt");
 
 interface Args {
   _: string[];
@@ -119,6 +128,112 @@ async function main() {
         });
         if (res.sent) console.log(`✓ digest sent to ${res.to} (${res.count} roles) via ${res.channel}`);
         else console.log(`✓ digest rendered (${res.count} roles) — ${res.channel} (set RESEND_API_KEY + DIGEST_TO to email)`);
+        break;
+      }
+      case "discover": {
+        const sub = _[1] ?? "yc";
+        const limit = num(flags.limit);
+        let entries: DiscoverEntry[] = [];
+        if (sub === "tokens") {
+          const file = _[2] ?? TOKENS_PATH;
+          const txt = await readFile(file, "utf8");
+          const toks = txt
+            .split("\n")
+            .map((l) => l.trim())
+            .filter((l) => l && !l.startsWith("#"))
+            .map((l) => {
+              const [provider, token, ...rest] = l.split(/[\s,]+/);
+              return { provider: provider as never, token: token!, name: rest.join(" ") || undefined };
+            })
+            .filter((t) => t.provider && t.token);
+          console.log(`Verifying ${toks.length} ATS tokens…`);
+          const r = await discoverTokens(db, toks, {
+            onResult: (e, n) => {
+              if (n > 0) console.log(`  ✓ ${e.provider}/${e.token} (${n} jobs)`);
+            },
+          });
+          console.log(`\n✓ tokens: ${r.verified}/${r.processed} verified, ${r.added} new companies, ${r.dead.length} dead`);
+          break;
+        }
+        if (sub === "domain") {
+          const dom = _[2];
+          if (!dom) throw new Error("usage: jr discover domain <domain>");
+          const r = await detectAts(dom);
+          console.log(
+            r.provider
+              ? `✓ ${r.domain} -> ${r.provider}/${r.token} (${r.jobCount} jobs, via ${r.via})`
+              : `✗ ${r.domain} -> no ATS found via regex`,
+          );
+          if (!r.provider && flags.agent) {
+            console.log("  trying resolution agent…");
+            const a = await resolveAtsWithAgent(dom);
+            console.log(
+              a.provider ? `  ✓ agent: ${a.provider}/${a.token} (${a.jobCount} jobs)` : "  ✗ agent: not found",
+            );
+          }
+          break;
+        }
+        if (sub === "yc") {
+          const recent = Boolean(flags.recent);
+          console.log(`Fetching YC company list${limit ? ` (limit ${limit})` : ""}${recent ? " [recent-first]" : ""}…`);
+          entries = await fetchYcDomains({ limit, recent });
+        } else if (sub === "domains") {
+          const file = _[2];
+          if (!file) throw new Error("usage: jr discover domains <file>");
+          const txt = await readFile(file, "utf8");
+          entries = txt
+            .split("\n")
+            .map((l) => l.trim())
+            .filter((l) => l && !l.startsWith("#"))
+            .map((domain) => ({ domain }));
+        } else {
+          throw new Error("usage: jr discover [yc|domains <file>|domain <domain>] [--limit N] [--agent]");
+        }
+
+        console.log(`Detecting ATS across ${entries.length} domains…`);
+        let done = 0;
+        const res = await discoverCompanies(db, entries, {
+          discoveredVia: sub === "yc" ? "yc" : "seed-file",
+          onResult: (r) => {
+            done++;
+            if (r.provider) console.log(`  ✓ ${r.domain} -> ${r.provider}/${r.token} (${r.jobCount})`);
+            if (done % 100 === 0) process.stdout.write(`  …${done}/${entries.length}\n`);
+          },
+        });
+        console.log(
+          `\n✓ discover: ${res.resolved}/${res.processed} resolved, ${res.added} new companies, ${res.misses} regex misses`,
+        );
+
+        if (flags.agent && res.missDomains.length) {
+          const cap = num(flags["agent-limit"]) ?? 25;
+          const targets = res.missDomains.slice(0, cap);
+          console.log(`Running resolution agent on ${targets.length} misses…`);
+          let recovered = 0;
+          for (const dom of targets) {
+            try {
+              const a = await resolveAtsWithAgent(dom);
+              if (a.provider && a.token) {
+                recovered++;
+                await upsertDiscovered(db, { domain: dom, provider: a.provider, token: a.token, via: "agent" });
+                console.log(`  ✓ ${dom} -> ${a.provider}/${a.token} (${a.jobCount})`);
+              }
+            } catch (e) {
+              console.log(`  agent error on ${dom}: ${e instanceof Error ? e.message : e}`);
+              break;
+            }
+          }
+          console.log(`✓ agent recovered ${recovered}/${targets.length}`);
+        }
+        break;
+      }
+      case "liveness": {
+        const r = await runLiveness(db);
+        console.log("Liveness");
+        console.log(`  companies:    ${r.total}`);
+        console.log(`  active:       ${r.active}  (never crawled: ${r.neverCrawled})`);
+        console.log(`  stale:        ${r.stale}  (+${r.markedStale} this run)`);
+        console.log(`  dead:         ${r.dead}  (+${r.markedDead} this run)`);
+        console.log(`  failing:      ${r.failingPct.toFixed(1)}%  (P3 target < 2%)`);
         break;
       }
       case "enrich": {
@@ -270,6 +385,13 @@ Usage:
   pnpm jr crawl --only ashby      crawl one ATS provider
   pnpm jr crawl --company stripe  crawl one company (by board token)
   pnpm jr dedupe                  link cross-source duplicates
+
+  P3 discovery:
+  pnpm jr discover domain <d>     detect one domain's ATS (add --agent for misses)
+  pnpm jr discover yc --limit 500 import YC companies, detect + register ATS
+  pnpm jr discover domains <file> detect from a newline-separated domains file
+  pnpm jr discover ... --agent    resolve regex misses with the LLM agent (needs key)
+  pnpm jr liveness                mark stale/dead, report failing %
   pnpm jr digest [--dry-run]      build + send the daily digest
   pnpm jr digest --top 15 --since 3
 
