@@ -23,24 +23,39 @@ export interface TriageJob {
   applyUrl: string;
   source: string;
   descriptionMd: string;
+  score: number | null;
+  rubric: unknown;
 }
 
 export interface TriageOptions {
   limit?: number;
   sinceDays?: number;
+  /** when set, join that profile's stage-2 score/rubric and order by score first */
+  profileLabel?: string;
 }
 
 /**
  * The triage queue: open, canonical, fresh jobs that haven't been actioned yet
- * (no feedback row and no application row). Ordered newest-first. Descriptions are
- * included so keyboard nav needs no round-trips.
+ * (no feedback row and no application row). Ordered by the profile's fit score
+ * when a profile is given (P2), else newest-first. Descriptions are included so
+ * keyboard nav needs no round-trips.
  */
 export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<TriageJob[]> {
   const limit = opts.limit ?? 50;
   const sinceDays = opts.sinceDays ?? 14;
   const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+  const label = opts.profileLabel ?? null;
 
-  return db
+  const scoreExpr = sql<number | null>`(
+    select js.score from job_scores js join profiles p on p.id = js.profile_id
+    where js.job_id = ${jobs.id} and js.stage = 's2' and p.label = ${label}
+  )`;
+  const rubricExpr = sql<unknown>`(
+    select js.rubric from job_scores js join profiles p on p.id = js.profile_id
+    where js.job_id = ${jobs.id} and js.stage = 's2' and p.label = ${label}
+  )`;
+
+  const rows = await db
     .select({
       id: jobs.id,
       title: jobs.title,
@@ -56,6 +71,8 @@ export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<
       applyUrl: jobs.applyUrl,
       source: jobs.source,
       descriptionMd: jobs.descriptionMd,
+      score: label ? scoreExpr : sql<number | null>`null`,
+      rubric: label ? rubricExpr : sql<unknown>`null`,
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
@@ -69,8 +86,13 @@ export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<
         ...notBlockedTitle(),
       ),
     )
-    .orderBy(desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`))
+    .orderBy(
+      label
+        ? desc(sql`${scoreExpr} nulls last`)
+        : desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`),
+    )
     .limit(limit);
+  return rows as TriageJob[];
 }
 
 /** How many jobs are waiting in the queue (for the header count). */

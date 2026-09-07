@@ -154,20 +154,26 @@ export const jobEnrichment = pgTable("job_enrichment", {
   timezoneRequirement: text("timezone_requirement"),
   workAuthRequirement: text("work_auth_requirement"),
   compParsed: jsonb("comp_parsed"),
+  /** distilled ~150-token canonical summary that gets embedded (design doc §7) */
+  summary: text("summary"),
   embedding: halfvec("embedding", { dim: 512 }),
   model: text("model"),
   enrichedAt: timestamp("enriched_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const profiles = pgTable("profiles", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  label: text("label").notNull(),
-  resumeMd: text("resume_md").notNull().default(""),
-  mustHave: jsonb("must_have"),
-  exclude: jsonb("exclude"),
-  embedding: halfvec("embedding", { dim: 512 }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const profiles = pgTable(
+  "profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    label: text("label").notNull(),
+    resumeMd: text("resume_md").notNull().default(""),
+    mustHave: jsonb("must_have"),
+    exclude: jsonb("exclude"),
+    embedding: halfvec("embedding", { dim: 512 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("profiles_label_uq").on(t.label)],
+);
 
 export const jobScores = pgTable(
   "job_scores",
@@ -185,7 +191,10 @@ export const jobScores = pgTable(
     model: text("model"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("scores_job_profile_idx").on(t.jobId, t.profileId)],
+  (t) => [
+    index("scores_job_profile_idx").on(t.jobId, t.profileId),
+    uniqueIndex("scores_job_profile_stage_uq").on(t.jobId, t.profileId, t.stage),
+  ],
 );
 
 export const feedback = pgTable("feedback", {

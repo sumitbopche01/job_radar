@@ -1,0 +1,42 @@
+[
+  {
+    "label": "agent-llm-infra",
+    "resumeMd": "Senior engineer building LLM/agent infrastructure: agent orchestration loops, tool-use and function calling, RAG and retrieval pipelines, evals and precision metrics, vector search (pgvector), structured outputs, prompt caching and batch inference, model routing. Ships TypeScript/Python services around LLM APIs (Anthropic, OpenAI). Comfortable owning the AI layer of a product end to end. Built HariNext.",
+    "mustHave": {
+      "seniority_min": "senior",
+      "remote_ok": true,
+      "timezone_overlap": ["IST", "US-overlap", "EU-overlap"],
+      "stack_any": ["llm", "agent", "rag", "inference", "ml", "ai", "pytorch", "langchain", "pgvector", "python"]
+    },
+    "exclude": {
+      "titles": ["manager", "sales", "support"],
+      "onsite_only": true
+    }
+  },
+  {
+    "label": "fullstack-ai",
+    "resumeMd": "Full-stack engineer who ships AI-powered product features: Next.js/React front ends, TypeScript/Node back ends, Postgres, integrating LLM features (chat, extraction, search) into real products. Comfortable across the stack from UI to data model to the model call. Product-minded, fast shipper. Built HariNext.",
+    "mustHave": {
+      "seniority_min": "mid",
+      "remote_ok": true,
+      "stack_any": ["typescript", "react", "next.js", "node", "postgres"]
+    },
+    "exclude": {
+      "titles": ["manager", "sales", "support"],
+      "onsite_only": true
+    }
+  },
+  {
+    "label": "backend-platform",
+    "resumeMd": "Backend / platform engineer: distributed services, APIs (gRPC/REST), data pipelines, Postgres, queues, reliability and scale. Strong in TypeScript/Go/Python. Owns services end to end, cares about correctness, observability, and cost. Built HariNext.",
+    "mustHave": {
+      "seniority_min": "senior",
+      "remote_ok": true,
+      "stack_any": ["go", "typescript", "python", "postgres", "grpc"]
+    },
+    "exclude": {
+      "titles": ["manager", "sales", "support"],
+      "onsite_only": true
+    }
+  }
+]

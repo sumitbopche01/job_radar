@@ -2,7 +2,7 @@
 
 Personal job-discovery pipeline. Crawls source-of-truth ATS JSON endpoints (Greenhouse, Lever, Ashby), normalizes and dedupes into Postgres, and emails a daily digest. See [`design.md`](design.md) for the full rationale and [`CLAUDE.md`](CLAUDE.md) for the operating contract.
 
-**Status: P1 complete** — crawl → normalize → dedupe → stage-0 filter → digest, plus a keyboard-driven triage UI, feedback capture, an applications pipeline board, and CSV export. No LLM ranking yet (that's P2).
+**Status: P2 in place** — crawl → normalize → dedupe → stage-0 → digest, a keyboard triage UI + applications pipeline + CSV export, and the matching layer: enrichment (extract → distilled summary → embed), stage-1 hybrid retrieval (FTS + pgvector via RRF), a stage-2 LLM judge, and an eval harness for precision@10. The LLM steps need API keys (below); FTS retrieval and eval scaffolding run without them.
 
 ## Quickstart
 
@@ -42,10 +42,27 @@ Keyboard: `j`/`k` move · `s` shortlist · `x` reject (then a one-key reason) ·
 | `pnpm jr export [path]` | write applications.csv for the job-search skill |
 | `pnpm jr stats` | show counts |
 
+### Matching (P2 — needs `OPENAI_API_KEY` + `ANTHROPIC_API_KEY`)
+
+```bash
+pnpm jr profiles seed          # 3 archetype profiles (edit apps/worker/data/profiles.seed.json)
+pnpm jr profiles embed         # embed profile summaries (OpenAI)
+pnpm jr enrich --limit 200     # extract → distill → embed stage-0 jobs (Anthropic + OpenAI)
+pnpm jr retrieve agent-llm-infra   # stage-1 hybrid retrieval (FTS works without keys)
+pnpm jr score agent-llm-infra      # stage-1 → stage-2 judge → job_scores
+pnpm jr eval scaffold --n 50 --out eval.json   # then hand-label each yes/no/borderline
+pnpm jr eval run agent-llm-infra --file eval.json   # precision@10
+```
+
+Then open the triage UI ranked by a profile: `http://localhost:3005/?profile=agent-llm-infra`.
+
+Model routing lives only in [`packages/core/src/llm`](packages/core/src/llm/index.ts) (design doc §16). Profiles: `agent-llm-infra`, `fullstack-ai`, `backend-platform`.
+
 ## Layout
 
 ```
-packages/core     schema, types, adapters, pipeline, dedupe, filters, triage, applications, digest
+packages/core     schema, types, adapters, pipeline, dedupe, filters, triage,
+                  applications, digest, llm, enrich, profiles, scoring, eval
 apps/worker       the `jr` CLI (and later the scheduler)
 apps/web          Next.js triage UI + pipeline board (:3005)
 ```

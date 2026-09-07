@@ -39,4 +39,9 @@ One file in `packages/core/src/adapters/`, implementing `SourceAdapter` (`packag
   - Triage queue = open + canonical + fresh + not-blocklisted + not-yet-actioned. `s` shortlist, `x` reject (+one-key reason → `feedback`), `a` applied, `o` open, `j/k` nav, `/` search.
   - Actions live in `apps/web/app/actions.ts`; DB pool singleton in `apps/web/lib/db.ts`.
   - web imports core's `.ts` sources → `next.config.ts` sets `extensionAlias` so `.js` specifiers resolve.
-- **P2 (next):** eval set + enrichment/embeddings + stage 1/2 scoring + calibration.
+- **P2 (current):** matching. `packages/core/src/llm` is the ONLY place model strings live (hybrid: OpenAI `text-embedding-3-small`@512 for embeddings, Anthropic Haiku for extract + first-pass judge, Sonnet for the top-15 escalation). Pipeline: `enrich` (extract → distilled ~150-tok summary → embed) → stage-1 hybrid retrieval (Postgres FTS + pgvector fused with RRF, `scoring/retrieve.ts`) → stage-2 LLM judge (`scoring/score.ts`, structured output, cached profile prefix, few-shot from nearest labeled `feedback`). Eval harness (`eval/`) measures precision@10.
+  - FTS/vector indexes are DB-only (generated tsvector + GIN + HNSW) and ensured idempotently via `ensureSearchIndexes` (`db/fts.ts`), NOT a tracked migration.
+  - Needs `OPENAI_API_KEY` + `ANTHROPIC_API_KEY`. Without them: FTS retrieval and eval scaffold still run; enrich/embed/judge don't.
+  - CLI: `jr profiles seed|embed`, `jr enrich`, `jr retrieve <profile>`, `jr score <profile>`, `jr eval scaffold|run`.
+  - Triage UI ranks by a profile's stage-2 score when `?profile=<label>` is set (else freshness).
+- **P3 (next):** company discovery (seed import + ATS detection) → 3,000 companies.

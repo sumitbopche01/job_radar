@@ -39,6 +39,13 @@ export const TITLE_BLOCKLIST = [
   "paralegal",
   "treasury",
   "controller",
+  "product manager",
+  "engineering manager",
+  "program manager",
+  "project manager",
+  "director",
+  "vice president",
+  "head of",
 ];
 
 export interface Stage0Options {

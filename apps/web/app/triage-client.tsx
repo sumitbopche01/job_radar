@@ -3,6 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { appliedAction, rejectAction, shortlistAction } from "./actions";
 
+export interface Rubric {
+  fit_score?: number;
+  seniority_match?: "under" | "match" | "over";
+  evidence?: string[];
+  gaps?: string[];
+  eligibility_risk?: "none" | "timezone" | "work_auth" | "onsite";
+  founder_question_risk?: string;
+  hook?: string;
+}
+
 export interface TriageItem {
   id: string;
   title: string;
@@ -18,6 +28,8 @@ export interface TriageItem {
   applyUrl: string;
   source: string;
   descriptionMd: string;
+  score: number | null;
+  rubric: Rubric | null;
 }
 
 const REJECT_REASONS: Record<string, string> = {
@@ -199,7 +211,10 @@ export function TriageClient({ items }: { items: TriageItem[] }) {
                       : "border-transparent hover:bg-neutral-100 dark:hover:bg-neutral-900"
                   }`}
                 >
-                  <span className="line-clamp-1 text-sm font-medium">{j.title}</span>
+                  <span className="flex w-full items-center gap-2">
+                    {j.score != null && <ScoreBadge score={j.score} />}
+                    <span className="line-clamp-1 text-sm font-medium">{j.title}</span>
+                  </span>
                   <span className="line-clamp-1 text-xs text-neutral-500">
                     {j.companyName} · {locLabel(j)}
                     {salaryLabel(j) ? ` · ${salaryLabel(j)}` : ""}
@@ -238,6 +253,7 @@ export function TriageClient({ items }: { items: TriageItem[] }) {
                   Open (o)
                 </a>
               </div>
+              {current.rubric && <RubricPanel rubric={current.rubric} score={current.score} />}
               <div className="mt-4 whitespace-pre-wrap text-pretty text-sm leading-relaxed text-neutral-800 dark:text-neutral-200">
                 {current.descriptionMd || "No description."}
               </div>
@@ -266,6 +282,57 @@ function Footer({ rejecting }: { rejecting: boolean }) {
           <Kbd>j</Kbd>/<Kbd>k</Kbd> move · <Kbd>s</Kbd> shortlist · <Kbd>x</Kbd> reject · <Kbd>a</Kbd>{" "}
           applied · <Kbd>o</Kbd> open · <Kbd>/</Kbd> search
         </span>
+      )}
+    </div>
+  );
+}
+
+function ScoreBadge({ score }: { score: number }) {
+  const tone =
+    score >= 80
+      ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300"
+      : score >= 60
+        ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+        : "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400";
+  return (
+    <span className={`shrink-0 rounded px-1.5 text-[11px] font-semibold tabular-nums ${tone}`}>{score}</span>
+  );
+}
+
+function RubricPanel({ rubric, score }: { rubric: Rubric; score: number | null }) {
+  return (
+    <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900/50">
+      <div className="flex items-center gap-2">
+        {score != null && <ScoreBadge score={score} />}
+        {rubric.seniority_match && (
+          <span className="text-xs text-neutral-500">seniority: {rubric.seniority_match}</span>
+        )}
+        {rubric.eligibility_risk && rubric.eligibility_risk !== "none" && (
+          <span className="text-xs font-medium text-red-600 dark:text-red-400">
+            risk: {rubric.eligibility_risk}
+          </span>
+        )}
+      </div>
+      {rubric.hook && <p className="mt-2 text-pretty font-medium">{rubric.hook}</p>}
+      {rubric.evidence && rubric.evidence.length > 0 && (
+        <div className="mt-2">
+          <p className="text-xs font-semibold text-neutral-500">Evidence</p>
+          <ul className="ml-4 list-disc text-sm text-neutral-700 dark:text-neutral-300">
+            {rubric.evidence.map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {rubric.gaps && rubric.gaps.length > 0 && (
+        <div className="mt-2">
+          <p className="text-xs font-semibold text-neutral-500">Gaps</p>
+          <ul className="ml-4 list-disc text-sm text-neutral-700 dark:text-neutral-300">
+            {rubric.gaps.map((g, i) => (
+              <li key={i}>{g}</li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

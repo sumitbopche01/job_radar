@@ -17,11 +17,12 @@ interface FetchOpts {
   body?: unknown;
   timeoutMs?: number;
   retries?: number;
+  headers?: Record<string, string>;
 }
 
 /** GET/POST JSON with timeout, exponential backoff, and a typed HttpError on 4xx/5xx. */
 export async function fetchJson<T = unknown>(url: string, opts: FetchOpts = {}): Promise<T> {
-  const { method = "GET", body, timeoutMs = 20_000, retries = 2 } = opts;
+  const { method = "GET", body, timeoutMs = 20_000, retries = 2, headers = {} } = opts;
   let lastErr: unknown;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -33,6 +34,7 @@ export async function fetchJson<T = unknown>(url: string, opts: FetchOpts = {}):
           "user-agent": UA,
           accept: "application/json",
           ...(body ? { "content-type": "application/json" } : {}),
+          ...headers,
         },
         body: body ? JSON.stringify(body) : undefined,
         headersTimeout: timeoutMs,

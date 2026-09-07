@@ -15,6 +15,13 @@
       "when": 1788779924834,
       "tag": "0001_clear_killmonger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788782601441,
+      "tag": "0002_flippant_sumo",
+      "breakpoints": true
     }
   ]
 }
