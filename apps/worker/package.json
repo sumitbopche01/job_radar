@@ -1,0 +1,15 @@
+{
+  "name": "@job-radar/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "jr": "src/cli.ts"
+  },
+  "scripts": {
+    "jr": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@job-radar/core": "workspace:*"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@job-radar/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./db": "./src/db/index.ts",
+    "./adapters": "./src/adapters/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  }
+}
