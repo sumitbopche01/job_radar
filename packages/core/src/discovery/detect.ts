@@ -12,7 +12,6 @@ const RESERVED = new Set([
   "job-board",
   "posting-api",
   "search",
-  "widget",
   "api",
   "www",
   "jobs",

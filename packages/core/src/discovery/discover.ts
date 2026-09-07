@@ -30,6 +30,18 @@ async function countCompanies(db: Db): Promise<number> {
   return row?.n ?? 0;
 }
 
+/** Pretty display name from a domain: "back-market.com" -> "Back Market". */
+export function prettyFromDomain(domain: string | undefined): string | null {
+  if (!domain) return null;
+  const sld = domain
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split(".")[0];
+  if (!sld) return null;
+  const words = sld.split(/[-_]+/).filter(Boolean);
+  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || null;
+}
+
 export interface TokenEntry {
   provider: AtsProvider;
   token: string;
@@ -90,7 +102,7 @@ export async function upsertDiscovered(
 ): Promise<void> {
   const domain = r.domain?.trim() || null;
   const insert = db.insert(companies).values({
-    name: r.name?.trim() || r.token,
+    name: r.name?.trim() || prettyFromDomain(domain ?? undefined) || r.token,
     domain,
     atsProvider: r.provider as never,
     boardToken: r.token,
@@ -130,7 +142,7 @@ export async function discoverCompanies(
           await db
             .insert(companies)
             .values({
-              name: e.name?.trim() || res.token,
+              name: e.name?.trim() || prettyFromDomain(res.domain) || res.token,
               domain: res.domain,
               atsProvider: res.provider,
               boardToken: res.token,
