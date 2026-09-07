@@ -14,3 +14,4 @@ export * from "./util/normalize.js";
 export * from "./util/html.js";
 export * from "./util/hash.js";
 export * from "./util/infer.js";
+export * from "./util/salary.js";

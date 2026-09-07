@@ -31,11 +31,12 @@ const REJECT_REASONS: Record<string, string> = {
 };
 
 function salaryLabel(j: TriageItem): string | null {
-  if (j.salaryMin == null && j.salaryMax == null) return null;
-  const cur = j.salaryCurrency ?? "";
-  const fmt = (n: number) => `${cur}${Math.round(n / 1000)}k`;
-  if (j.salaryMin != null && j.salaryMax != null) return `${fmt(j.salaryMin)}–${fmt(j.salaryMax)}`;
-  return fmt((j.salaryMin ?? j.salaryMax)!);
+  const { salaryMin: min, salaryMax: max, salaryCurrency } = j;
+  if (min == null && max == null) return null;
+  const cur = salaryCurrency ?? "";
+  const fmt = (n: number) => (n >= 1000 ? `${cur}${Math.round(n / 1000)}k` : `${cur}${n}`);
+  if (min != null && max != null && min !== max) return `${fmt(min)}–${fmt(max)}`;
+  return fmt((min ?? max)!);
 }
 
 function locLabel(j: TriageItem): string {

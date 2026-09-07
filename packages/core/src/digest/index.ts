@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import type { Db } from "../db/client.js";
 import { stage0Candidates, type Stage0Job } from "../filters/stage0.js";
+import { formatSalary } from "../util/salary.js";
 
 export interface DigestOptions {
   top?: number;
@@ -28,11 +29,8 @@ function escapeHtml(s: string): string {
 }
 
 function salaryLabel(j: Stage0Job): string {
-  if (j.salaryMin == null && j.salaryMax == null) return "";
-  const cur = j.salaryCurrency ?? "";
-  const fmt = (n: number) => `${cur}${Math.round(n / 1000)}k`;
-  if (j.salaryMin != null && j.salaryMax != null) return ` · ${fmt(j.salaryMin)}–${fmt(j.salaryMax)}`;
-  return ` · ${fmt((j.salaryMin ?? j.salaryMax)!)}`;
+  const s = formatSalary(j.salaryMin, j.salaryMax, j.salaryCurrency);
+  return s ? ` · ${s}` : "";
 }
 
 function loc(j: Stage0Job): string {

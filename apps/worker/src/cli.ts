@@ -86,6 +86,11 @@ async function main() {
           onResult: (r) => logResult(r),
         });
         summarize(results, Date.now() - started);
+        // Keep the queue/digest correct without a manual second step.
+        if (!flags["no-dedupe"]) {
+          const dd = await dedupe(db);
+          console.log(`  dedupe: ${dd.duplicatesLinked} duplicates linked across ${dd.groups} groups`);
+        }
         break;
       }
       case "dedupe": {
