@@ -12,7 +12,8 @@ Personal job-discovery pipeline. Crawls ATS JSON endpoints → normalize → ded
 - `pnpm db:generate` — generate a migration from schema changes.
 - `pnpm db:migrate` — apply migrations.
 - `pnpm db:studio` — Drizzle Studio (eyeball rows while tuning).
-- `pnpm jr <cmd>` — the CLI. `pnpm jr crawl`, `pnpm jr crawl --only greenhouse`, `pnpm jr crawl --company stripe`, `pnpm jr digest`, `pnpm jr seed`, `pnpm jr stats`.
+- `pnpm jr <cmd>` — the CLI. `pnpm jr crawl`, `pnpm jr crawl --only greenhouse`, `pnpm jr crawl --company stripe`, `pnpm jr digest`, `pnpm jr export`, `pnpm jr seed`, `pnpm jr stats`.
+- `pnpm --filter @job-radar/web dev` — triage UI on :3005.
 - `pnpm test` — vitest (adapter fixtures + dedupe).
 
 ## Invariants (do not break)
@@ -33,4 +34,9 @@ One file in `packages/core/src/adapters/`, implementing `SourceAdapter` (`packag
 - `apps/web` — Next.js triage UI (P1, not built yet).
 
 ## Phase status
-- **P0 (current):** Greenhouse + Lever + Ashby, seed companies, crawl → normalize → dedupe → stage-0 filter → digest. No UI, no LLM.
+- **P0 (done):** Greenhouse + Lever + Ashby, seed companies, crawl → normalize → dedupe → stage-0 filter → digest. No UI, no LLM.
+- **P1 (current):** Next.js keyboard triage UI (`apps/web`, :3005), feedback capture, applications pipeline board, `jr export` CSV for the job-search skill.
+  - Triage queue = open + canonical + fresh + not-blocklisted + not-yet-actioned. `s` shortlist, `x` reject (+one-key reason → `feedback`), `a` applied, `o` open, `j/k` nav, `/` search.
+  - Actions live in `apps/web/app/actions.ts`; DB pool singleton in `apps/web/lib/db.ts`.
+  - web imports core's `.ts` sources → `next.config.ts` sets `extensionAlias` so `.js` specifiers resolve.
+- **P2 (next):** eval set + enrichment/embeddings + stage 1/2 scoring + calibration.

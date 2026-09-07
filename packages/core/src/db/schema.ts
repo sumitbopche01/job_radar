@@ -198,19 +198,24 @@ export const feedback = pgTable("feedback", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const applications = pgTable("applications", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  jobId: uuid("job_id")
-    .notNull()
-    .references(() => jobs.id, { onDelete: "cascade" }),
-  status: applicationStatusEnum("status").notNull().default("new"),
-  appliedAt: timestamp("applied_at", { withTimezone: true }),
-  resumeVersion: text("resume_version"),
-  coverLetterPath: text("cover_letter_path"),
-  contact: text("contact"),
-  notes: text("notes"),
-  nextActionAt: timestamp("next_action_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const applications = pgTable(
+  "applications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    status: applicationStatusEnum("status").notNull().default("new"),
+    appliedAt: timestamp("applied_at", { withTimezone: true }),
+    resumeVersion: text("resume_version"),
+    coverLetterPath: text("cover_letter_path"),
+    contact: text("contact"),
+    notes: text("notes"),
+    nextActionAt: timestamp("next_action_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("applications_job_uq").on(t.jobId)], // one application per job
+);
 
 export const CREATE_VECTOR_EXTENSION = sql`CREATE EXTENSION IF NOT EXISTS vector`;

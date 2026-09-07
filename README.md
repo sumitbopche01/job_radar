@@ -2,7 +2,7 @@
 
 Personal job-discovery pipeline. Crawls source-of-truth ATS JSON endpoints (Greenhouse, Lever, Ashby), normalizes and dedupes into Postgres, and emails a daily digest. See [`design.md`](design.md) for the full rationale and [`CLAUDE.md`](CLAUDE.md) for the operating contract.
 
-**Status: P0 complete** — crawl → normalize → dedupe → stage-0 filter → digest. No UI, no LLM yet.
+**Status: P1 complete** — crawl → normalize → dedupe → stage-0 filter → digest, plus a keyboard-driven triage UI, feedback capture, an applications pipeline board, and CSV export. No LLM ranking yet (that's P2).
 
 ## Quickstart
 
@@ -20,6 +20,14 @@ pnpm jr stats                 # pipeline counts
 
 To actually email the digest, set `RESEND_API_KEY` and `DIGEST_TO` in `.env`, then `pnpm jr digest`.
 
+### Triage UI
+
+```bash
+pnpm --filter @job-radar/web dev     # http://localhost:3005
+```
+
+Keyboard: `j`/`k` move · `s` shortlist · `x` reject (then a one-key reason) · `a` applied · `o` open posting · `/` search. The `/pipeline` board tracks applications (new → shortlist → applied → screen → interview → offer/rejected) with follow-up dates. `pnpm jr export applications.csv` writes the tracker for the job-search skill.
+
 ## CLI
 
 | Command | Does |
@@ -31,14 +39,15 @@ To actually email the digest, set `RESEND_API_KEY` and `DIGEST_TO` in `.env`, th
 | `pnpm jr crawl --company stripe` | crawl one company by board token |
 | `pnpm jr dedupe` | link cross-source duplicates |
 | `pnpm jr digest [--dry-run --top N --since D]` | build + send the daily digest |
+| `pnpm jr export [path]` | write applications.csv for the job-search skill |
 | `pnpm jr stats` | show counts |
 
 ## Layout
 
 ```
-packages/core     schema, types, adapters, pipeline, dedupe, filters, digest
+packages/core     schema, types, adapters, pipeline, dedupe, filters, triage, applications, digest
 apps/worker       the `jr` CLI (and later the scheduler)
-apps/web          Next.js triage UI (P1, not built yet)
+apps/web          Next.js triage UI + pipeline board (:3005)
 ```
 
 ## Adding an ATS source

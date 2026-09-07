@@ -30,6 +30,15 @@ export const TITLE_BLOCKLIST = [
   "receptionist",
   "accountant",
   "bookkeeper",
+  "executive assistant",
+  "chief of staff",
+  "solutions architect",
+  "sourcing",
+  "procurement",
+  "counsel",
+  "paralegal",
+  "treasury",
+  "controller",
 ];
 
 export interface Stage0Options {

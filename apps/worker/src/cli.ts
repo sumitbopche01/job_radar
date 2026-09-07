@@ -1,11 +1,12 @@
 #!/usr/bin/env -S npx tsx
 import "dotenv/config";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import {
   createDb,
   dedupe,
+  exportApplicationsCsv,
   getStats,
   runCrawl,
   seedCompanies,
@@ -102,6 +103,14 @@ async function main() {
         else console.log(`✓ digest rendered (${res.count} roles) — ${res.channel} (set RESEND_API_KEY + DIGEST_TO to email)`);
         break;
       }
+      case "export": {
+        const csv = await exportApplicationsCsv(db);
+        const out = _[1] ?? "applications.csv";
+        await writeFile(out, csv, "utf8");
+        const rows = csv.trim().split("\n").length - 1;
+        console.log(`✓ exported ${rows} applications -> ${out}`);
+        break;
+      }
       case "stats": {
         const s = await getStats(db);
         console.log("Job Radar stats");
@@ -166,6 +175,7 @@ Usage:
   pnpm jr dedupe                  link cross-source duplicates
   pnpm jr digest [--dry-run]      build + send the daily digest
   pnpm jr digest --top 15 --since 3
+  pnpm jr export [path]           write applications.csv for the job-search skill
   pnpm jr stats                   show pipeline counts
 `);
 }
