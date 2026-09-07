@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractCandidates, extractLinks } from "../src/discovery/detect.js";
+import { extractCandidates, extractLinks, guessTokens } from "../src/discovery/detect.js";
 
 describe("extractCandidates", () => {
   it("pulls a greenhouse token from board + api URLs", () => {
@@ -41,6 +41,23 @@ describe("extractCandidates", () => {
 
   it("ignores non-ATS html", () => {
     expect(extractCandidates("<p>We are hiring! email jobs@acme.com</p>")).toHaveLength(0);
+  });
+});
+
+describe("guessTokens", () => {
+  it("derives the second-level domain as a candidate", () => {
+    expect(guessTokens("typeform.com")).toContain("typeform");
+    expect(guessTokens("https://www.pipedrive.com/careers")).toContain("pipedrive");
+  });
+
+  it("adds an alnum-collapsed variant and a company-name variant", () => {
+    const g = guessTokens("back-market.com", "Back Market");
+    expect(g).toContain("back-market");
+    expect(g).toContain("backmarket");
+  });
+
+  it("drops reserved words", () => {
+    expect(guessTokens("www.com")).not.toContain("www");
   });
 });
 

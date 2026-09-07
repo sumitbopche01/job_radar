@@ -123,7 +123,7 @@ export async function discoverCompanies(
   await Promise.all(
     entries.map((e) =>
       queue.add(async () => {
-        const res = await detectAts(e.domain);
+        const res = await detectAts(e.domain, e.name);
         opts.onResult?.({ ...res, name: e.name });
         if (res.provider && res.token) {
           resolved++;

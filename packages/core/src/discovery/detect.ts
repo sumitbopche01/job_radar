@@ -94,7 +94,58 @@ export interface DetectResult {
   provider?: AtsProvider;
   token?: string;
   jobCount?: number;
-  via: "regex" | "agent" | "none";
+  via: "regex" | "guess" | "agent" | "none";
+}
+
+const GUESS_PROVIDERS: AtsProvider[] = [
+  "greenhouse",
+  "ashby",
+  "lever",
+  "workable",
+  "recruitee",
+  "smartrecruiters",
+];
+
+/**
+ * Candidate ATS tokens derived from a domain/company name. Many companies use their
+ * name as the board token (typeform → "typeform"), which recovers JS-rendered careers
+ * pages that the HTML regex misses — with no LLM. High-precision candidates only, to
+ * limit attaching the wrong same-named company's board.
+ */
+export function guessTokens(domain: string, companyName?: string): string[] {
+  const sld = domain
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split(".")[0]!
+    .toLowerCase();
+  const out = new Set<string>();
+  const add = (t: string) => {
+    if (t.length >= 2 && t.length <= 40 && !RESERVED.has(t)) out.add(t);
+  };
+  add(sld);
+  add(sld.replace(/[^a-z0-9]/g, ""));
+  if (companyName) {
+    const cn = companyName.toLowerCase();
+    add(cn.replace(/[^a-z0-9]/g, ""));
+  }
+  return [...out];
+}
+
+/** Probe guessed tokens across providers; return the verified board with most jobs. */
+async function guessAndProbe(domain: string, companyName?: string): Promise<DetectResult> {
+  const tokens = guessTokens(domain, companyName);
+  const results = await Promise.all(
+    tokens.flatMap((token) =>
+      GUESS_PROVIDERS.map(async (provider) => ({ provider, token, n: await probeAts(provider, token) })),
+    ),
+  );
+  let best: DetectResult | undefined;
+  for (const r of results) {
+    if (r.n > 0 && (!best || r.n > (best.jobCount ?? 0))) {
+      best = { domain, provider: r.provider, token: r.token, jobCount: r.n, via: "guess" };
+    }
+  }
+  return best ?? { domain, via: "none" };
 }
 
 export async function fetchText(url: string, timeoutMs = 6000): Promise<string> {
@@ -157,7 +208,7 @@ export async function probeAts(provider: AtsProvider, token: string): Promise<nu
  * Returns the verified board with the most jobs, or {via:"none"} on a regex miss
  * (JS-rendered pages, custom subdomains) — those go to the resolution agent.
  */
-export async function detectAts(domain: string): Promise<DetectResult> {
+export async function detectAts(domain: string, companyName?: string): Promise<DetectResult> {
   const d = domain.replace(/^https?:\/\//, "").replace(/\/.*$/, "").trim();
   const urls = [`https://${d}/careers`, `https://${d}/jobs`, `https://careers.${d}`, `https://${d}`];
 
@@ -165,6 +216,7 @@ export async function detectAts(domain: string): Promise<DetectResult> {
   const html = htmls.join("\n");
   const candidates = extractCandidates(html);
 
+  // 1) regex candidates from the HTML (most precise)
   let best: DetectResult | undefined;
   for (const c of candidates) {
     const n = await probeAts(c.provider, c.token);
@@ -172,5 +224,9 @@ export async function detectAts(domain: string): Promise<DetectResult> {
       best = { domain: d, provider: c.provider, token: c.token, jobCount: n, via: "regex" };
     }
   }
-  return best ?? { domain: d, via: "none" };
+  if (best) return best;
+
+  // 2) keyless fallback: guess the token from the domain/name and probe all providers
+  //    (recovers JS-rendered careers pages the regex can't see)
+  return guessAndProbe(d, companyName);
 }

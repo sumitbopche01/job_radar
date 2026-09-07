@@ -53,7 +53,7 @@ pnpm jr discover yc --agent --agent-limit 25   # resolve regex misses with the L
 pnpm jr liveness                       # active→stale→dead, report failing %
 ```
 
-Detection fetches careers pages, regexes ATS board links, and **verifies each by probing the endpoint** — dead tokens never enter the registry. Regex misses (JS-rendered pages) go to the bounded resolution agent (needs `ANTHROPIC_API_KEY`). The highest-yield seed is a verified token list.
+Detection is a three-step ladder, each verifying tokens by probing the endpoint (dead tokens never enter the registry): **regex** on careers HTML → **guess-and-probe** (token derived from the domain/name, probed across all 6 providers — keyless, recovers most JS-rendered misses) → **resolution agent** (LLM, `--agent`, needs `ANTHROPIC_API_KEY`) for truly custom cases. The highest-yield bulk seed is a verified token list.
 
 ### Matching (P2 — needs `OPENAI_API_KEY` + `ANTHROPIC_API_KEY`)
 
