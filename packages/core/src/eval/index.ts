@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { companies, jobScores, jobs } from "../db/schema.js";
 import { TITLE_BLOCKLIST } from "../filters/stage0.js";
+import { eligibilityClause } from "../filters/eligibility.js";
 import { getProfile } from "../profiles/index.js";
 
 export type EvalLabel = "yes" | "no" | "borderline" | "";
@@ -33,6 +34,7 @@ export async function scaffoldEvalSet(db: Db, n = 50, sinceDays = 30): Promise<E
         isNull(jobs.closedAt),
         isNull(jobs.canonicalJobId),
         or(gte(jobs.postedAt, since), and(isNull(jobs.postedAt), gte(jobs.firstSeenAt, since))),
+        eligibilityClause("jobs"),
         ...notBlocked,
       ),
     )

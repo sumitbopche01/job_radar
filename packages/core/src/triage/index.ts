@@ -2,6 +2,7 @@ import { and, desc, eq, gte, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { applications, companies, feedback, jobs } from "../db/schema.js";
 import { TITLE_BLOCKLIST } from "../filters/stage0.js";
+import { eligibilityClause } from "../filters/eligibility.js";
 
 const notBlockedTitle = () =>
   TITLE_BLOCKLIST.map(
@@ -83,6 +84,7 @@ export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<
         or(gte(jobs.postedAt, since), and(isNull(jobs.postedAt), gte(jobs.firstSeenAt, since))),
         sql`not exists (select 1 from ${feedback} f where f.job_id = ${jobs.id})`,
         sql`not exists (select 1 from ${applications} a where a.job_id = ${jobs.id})`,
+        eligibilityClause("jobs"),
         ...notBlockedTitle(),
       ),
     )
@@ -109,6 +111,7 @@ export async function getTriageCount(db: Db, opts: TriageOptions = {}): Promise<
         or(gte(jobs.postedAt, since), and(isNull(jobs.postedAt), gte(jobs.firstSeenAt, since))),
         sql`not exists (select 1 from ${feedback} f where f.job_id = ${jobs.id})`,
         sql`not exists (select 1 from ${applications} a where a.job_id = ${jobs.id})`,
+        eligibilityClause("jobs"),
         ...notBlockedTitle(),
       ),
     );

@@ -4,6 +4,7 @@ import type { Db } from "../db/client.js";
 import { companies, jobEnrichment, jobs } from "../db/schema.js";
 import { ensureSearchIndexes } from "../db/fts.js";
 import { TITLE_BLOCKLIST } from "../filters/stage0.js";
+import { eligibilityClause } from "../filters/eligibility.js";
 import { embed, extractJob, MODELS, type Extraction } from "../llm/index.js";
 
 export interface EnrichOptions {
@@ -46,6 +47,7 @@ async function jobsNeedingEnrichment(db: Db, sinceDays: number, limit: number): 
         isNull(jobs.canonicalJobId),
         or(gte(jobs.postedAt, since), and(isNull(jobs.postedAt), gte(jobs.firstSeenAt, since))),
         sql`not exists (select 1 from ${jobEnrichment} e where e.job_id = ${jobs.id})`,
+        eligibilityClause("jobs"),
         ...notBlocked,
       ),
     )

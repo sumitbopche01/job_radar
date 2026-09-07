@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { companies, jobs } from "../db/schema.js";
+import { eligibilityClause } from "./eligibility.js";
 
 /** Titles that are never relevant — kills ~most of the noise for free (design doc §7). */
 export const TITLE_BLOCKLIST = [
@@ -104,6 +105,7 @@ export async function stage0Candidates(db: Db, opts: Stage0Options = {}): Promis
         isNull(jobs.canonicalJobId), // only winners, not duplicate pointers
         // fresh: posted recently, or (no posted date) first seen recently
         or(gte(jobs.postedAt, since), and(isNull(jobs.postedAt), gte(jobs.firstSeenAt, since))),
+        eligibilityClause("jobs"),
         ...notBlocked,
       ),
     )

@@ -16,6 +16,9 @@ Personal job-discovery pipeline. Crawls ATS JSON endpoints → normalize → ded
 - `pnpm --filter @job-radar/web dev` — triage UI on :3005.
 - `pnpm test` — vitest (adapter fixtures + dedupe).
 
+## Eligibility (geo gate)
+`packages/core/src/filters/eligibility.ts` is the single source of truth for "where can I work" (design §14.3): India (incl. Bengaluru), remote-doable-from-India (generic/global remote, Asia/APAC), Dubai/UAE, Singapore. Allowlist logic — a remote role pinned to a non-eligible city (e.g. "San Francisco", "Remote - US") is dropped. It's a coarse gate applied in every candidate query (stage-0/digest, triage, enrich, retrieve, eval); the LLM judge still reports fine-grained `eligibility_risk`. `jr stats` shows the eligible count.
+
 ## Invariants (do not break)
 - **Adapters never write to `jobs` directly.** An adapter only `fetch`es and `normalize`s. The pipeline owns raw storage, dedupe, and the `jobs` upsert.
 - **Raw payloads are immutable.** `raw_postings` is append-on-change (keyed by `content_hash`). To fix a bad parser, replay from raw — never re-crawl to repair.

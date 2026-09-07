@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { TITLE_BLOCKLIST } from "../filters/stage0.js";
+import { eligibilityClause } from "../filters/eligibility.js";
 import type { ProfileRow } from "../profiles/index.js";
 
 export interface RetrievedJob {
@@ -54,6 +55,7 @@ export async function retrieve(
     j.closed_at is null
     and j.canonical_job_id is null
     and (j.posted_at >= ${since} or (j.posted_at is null and j.first_seen_at >= ${since}))
+    and ${eligibilityClause("j")}
     and ${sql.join(notBlocked, sql` and `)}
   `;
 
