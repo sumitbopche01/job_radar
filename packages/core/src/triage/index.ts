@@ -93,7 +93,7 @@ export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<
     )
     .orderBy(
       label
-        ? desc(sql`${scoreExpr} nulls last`)
+        ? sql`${scoreExpr} desc nulls last`
         : desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`),
     )
     .limit(limit);
