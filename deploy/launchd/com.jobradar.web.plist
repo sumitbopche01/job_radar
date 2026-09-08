@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jobradar.web</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/sumitbopche/Library/pnpm/pnpm</string>
+        <string>start</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/sumitbopche/Documents/personal/projects/job_radar/apps/web</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/sumitbopche/.nvm/versions/node/v20.19.0/bin:/Users/sumitbopche/Library/pnpm:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>NODE_ENV</key>
+        <string>production</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/sumitbopche/Library/Logs/jobradar-web.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/sumitbopche/Library/Logs/jobradar-web.err.log</string>
+</dict>
+</plist>
