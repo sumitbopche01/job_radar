@@ -6,6 +6,7 @@ import { recruiteeAdapter } from "./recruitee.js";
 import { workableAdapter } from "./workable.js";
 import { smartrecruitersAdapter } from "./smartrecruiters.js";
 import { workdayAdapter } from "./workday.js";
+import { oracleAdapter } from "./oracle.js";
 
 export const adapters: Record<string, SourceAdapter> = {
   greenhouse: greenhouseAdapter,
@@ -15,6 +16,7 @@ export const adapters: Record<string, SourceAdapter> = {
   workable: workableAdapter,
   smartrecruiters: smartrecruitersAdapter,
   workday: workdayAdapter,
+  oracle: oracleAdapter,
 };
 
 export function getAdapter(provider: AtsProvider | string): SourceAdapter | undefined {
@@ -29,4 +31,5 @@ export {
   workableAdapter,
   smartrecruitersAdapter,
   workdayAdapter,
+  oracleAdapter,
 };

@@ -6,6 +6,7 @@ export type AtsProvider =
   | "smartrecruiters"
   | "recruitee"
   | "workable"
+  | "oracle"
   // non-ATS ingestion sources (HN, email); no adapter — crawl skips them
   | "external";
 

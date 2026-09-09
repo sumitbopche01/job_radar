@@ -40,7 +40,7 @@ One file in `packages/core/src/adapters/`, implementing `SourceAdapter` (`packag
 - `apps/web` — Next.js triage UI (P1, not built yet).
 
 ## Phase status
-- **P0 (done):** crawl → normalize → dedupe → stage-0 filter → digest. No UI, no LLM. Adapters cover **7 ATS providers**: Greenhouse, Lever, Ashby, Recruitee, Workable, SmartRecruiters, Workday (SmartRecruiters + Workday are list-only — no description/dates-are-relative without a per-job detail call). Detection recognizes the first 6. `external` is a non-ATS pseudo-provider (HN/email) with no adapter — crawl skips it.
+- **P0 (done):** crawl → normalize → dedupe → stage-0 filter → digest. No UI, no LLM. Adapters cover **8 ATS providers**: Greenhouse, Lever, Ashby, Recruitee, Workable, SmartRecruiters, Workday, Oracle Cloud (SmartRecruiters/Workday/Oracle are list-only — no description without a per-job detail call). Detection auto-resolves the first 6 (token-based); Workday & Oracle are added manually (`jr discover workday|oracle`) since they need host+site, not a token — for Oracle, `workday_tenant`=host and `workday_site`="siteNumber|siteName". `external` is a non-ATS pseudo-provider (HN/email), no adapter — crawl skips it.
 - **P1 (current):** Next.js keyboard triage UI (`apps/web`, :3005), feedback capture, applications pipeline board, `jr export` CSV for the job-search skill.
   - Triage queue = open + canonical + fresh + not-blocklisted + not-yet-actioned. `s` shortlist, `x` reject (+one-key reason → `feedback`), `a` applied, `o` open, `j/k` nav, `/` search.
   - Actions live in `apps/web/app/actions.ts`; DB pool singleton in `apps/web/lib/db.ts`.

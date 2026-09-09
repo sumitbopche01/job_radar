@@ -40,6 +40,7 @@ export const atsProviderEnum = pgEnum("ats_provider", [
   "smartrecruiters",
   "recruitee",
   "workable",
+  "oracle",
   // non-ATS sources (HN "Who's hiring", email alerts): crawl skips these
   // (no adapter); they hold ingested job rows keyed by company name.
   "external",

@@ -115,6 +115,26 @@ export async function upsertWorkday(
     });
 }
 
+/** Upsert one Oracle Recruiting Cloud company (host + siteNumber|siteName). */
+export async function upsertOracle(
+  db: Db,
+  r: { host: string; siteNumber: string; siteName: string; name?: string },
+): Promise<void> {
+  await db
+    .insert(companies)
+    .values({
+      name: r.name?.trim() || prettyFromDomain(r.host) || r.host,
+      atsProvider: "oracle",
+      workdayTenant: r.host,
+      workdaySite: `${r.siteNumber}|${r.siteName}`,
+      discoveredVia: "manual",
+    })
+    .onConflictDoUpdate({
+      target: [companies.workdayTenant, companies.workdaySite],
+      set: { name: r.name?.trim() || sql`companies.name` },
+    });
+}
+
 /** Upsert one detected/resolved board into the registry (deduped by provider+token). */
 export async function upsertDiscovered(
   db: Db,

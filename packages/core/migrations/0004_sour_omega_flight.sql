@@ -1,0 +1,1 @@
+ALTER TYPE "public"."ats_provider" ADD VALUE 'oracle' BEFORE 'external';

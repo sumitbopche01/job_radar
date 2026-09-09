@@ -18,6 +18,7 @@ import {
   resolveAtsWithAgent,
   runLiveness,
   upsertDiscovered,
+  upsertOracle,
   upsertWorkday,
   type DiscoverEntry,
   exportApplicationsCsv,
@@ -144,6 +145,16 @@ async function main() {
             throw new Error("usage: jr discover workday <host> <site> [name]  (host e.g. nvidia.wd5.myworkdayjobs.com)");
           await upsertWorkday(db, { host, site, name: _.slice(4).join(" ") || undefined });
           console.log(`✓ added workday company ${host}/${site} — crawl with: jr crawl --only workday`);
+          break;
+        }
+        if (sub === "oracle") {
+          const host = _[2];
+          const siteNumber = _[3];
+          const siteName = _[4];
+          if (!host || !siteNumber || !siteName)
+            throw new Error("usage: jr discover oracle <host> <siteNumber> <siteName> [name]  (e.g. iaambv.fa.ocs.oraclecloud.com CX_1 Presight-Careers Presight)");
+          await upsertOracle(db, { host, siteNumber, siteName, name: _.slice(5).join(" ") || undefined });
+          console.log(`✓ added oracle company ${host}/${siteNumber} — crawl with: jr crawl --only oracle`);
           break;
         }
         if (sub === "tokens") {
@@ -421,6 +432,7 @@ Usage:
   pnpm jr discover yc --limit 500 import YC companies, detect + register ATS
   pnpm jr discover domains <file> detect from a newline-separated domains file
   pnpm jr discover workday <host> <site> [name]   add a Workday company
+  pnpm jr discover oracle <host> <siteNumber> <siteName> [name]  add an Oracle Cloud company
   pnpm jr discover ... --agent    resolve regex misses with the LLM agent (needs key)
   pnpm jr liveness                mark stale/dead, report failing %
 
