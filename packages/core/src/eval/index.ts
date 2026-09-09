@@ -34,7 +34,7 @@ export async function scaffoldEvalSet(db: Db, n = 50, sinceDays = 30): Promise<E
       and(
         isNull(jobs.closedAt),
         isNull(jobs.canonicalJobId),
-        or(gte(jobs.postedAt, since), and(isNull(jobs.postedAt), gte(jobs.firstSeenAt, since))),
+        or(gte(jobs.postedAt, since), gte(jobs.firstSeenAt, since)),
         eligibilityClause("jobs"),
         roleTargetClause("jobs"),
         ...notBlocked,

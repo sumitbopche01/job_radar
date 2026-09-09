@@ -82,7 +82,7 @@ export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<
       and(
         isNull(jobs.closedAt),
         isNull(jobs.canonicalJobId),
-        or(gte(jobs.postedAt, since), and(isNull(jobs.postedAt), gte(jobs.firstSeenAt, since))),
+        or(gte(jobs.postedAt, since), gte(jobs.firstSeenAt, since)),
         sql`not exists (select 1 from ${feedback} f where f.job_id = ${jobs.id})`,
         sql`not exists (select 1 from ${applications} a where a.job_id = ${jobs.id})`,
         eligibilityClause("jobs"),
@@ -111,7 +111,7 @@ export async function getTriageCount(db: Db, opts: TriageOptions = {}): Promise<
       and(
         isNull(jobs.closedAt),
         isNull(jobs.canonicalJobId),
-        or(gte(jobs.postedAt, since), and(isNull(jobs.postedAt), gte(jobs.firstSeenAt, since))),
+        or(gte(jobs.postedAt, since), gte(jobs.firstSeenAt, since)),
         sql`not exists (select 1 from ${feedback} f where f.job_id = ${jobs.id})`,
         sql`not exists (select 1 from ${applications} a where a.job_id = ${jobs.id})`,
         eligibilityClause("jobs"),

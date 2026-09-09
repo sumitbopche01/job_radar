@@ -46,7 +46,7 @@ async function jobsNeedingEnrichment(db: Db, sinceDays: number, limit: number): 
       and(
         isNull(jobs.closedAt),
         isNull(jobs.canonicalJobId),
-        or(gte(jobs.postedAt, since), and(isNull(jobs.postedAt), gte(jobs.firstSeenAt, since))),
+        or(gte(jobs.postedAt, since), gte(jobs.firstSeenAt, since)),
         sql`not exists (select 1 from ${jobEnrichment} e where e.job_id = ${jobs.id})`,
         eligibilityClause("jobs"),
         roleTargetClause("jobs"),

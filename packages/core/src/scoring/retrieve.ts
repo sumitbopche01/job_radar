@@ -55,7 +55,7 @@ export async function retrieve(
   const pool = sql`
     j.closed_at is null
     and j.canonical_job_id is null
-    and (j.posted_at >= ${since} or (j.posted_at is null and j.first_seen_at >= ${since}))
+    and (j.posted_at >= ${since} or j.first_seen_at >= ${since})
     and ${eligibilityClause("j")}
     and ${roleTargetClause("j")}
     and ${sql.join(notBlocked, sql` and `)}

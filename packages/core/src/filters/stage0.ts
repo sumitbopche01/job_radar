@@ -144,7 +144,7 @@ export async function stage0Candidates(db: Db, opts: Stage0Options = {}): Promis
         isNull(jobs.closedAt),
         isNull(jobs.canonicalJobId), // only winners, not duplicate pointers
         // fresh: posted recently, or (no posted date) first seen recently
-        or(gte(jobs.postedAt, since), and(isNull(jobs.postedAt), gte(jobs.firstSeenAt, since))),
+        or(gte(jobs.postedAt, since), gte(jobs.firstSeenAt, since)),
         eligibilityClause("jobs"),
         roleTargetClause("jobs"),
         ...notBlocked,
