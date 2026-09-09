@@ -27,6 +27,7 @@ export * from "./discovery/resolveAgent.js";
 export * from "./ingest/index.js";
 export * from "./ingest/hn.js";
 export * from "./ingest/email.js";
+export * from "./ingest/remoteBoards.js";
 export * from "./util/normalize.js";
 export * from "./util/html.js";
 export * from "./util/hash.js";

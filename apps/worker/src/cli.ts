@@ -15,6 +15,7 @@ import {
   fetchYcDomains,
   ingestAlertEmail,
   ingestHiringThread,
+  ingestRemoteBoards,
   resolveAtsWithAgent,
   runLiveness,
   upsertDiscovered,
@@ -272,8 +273,18 @@ async function main() {
           const provider = _[3] as never;
           const r = await ingestAlertEmail(db, html, provider);
           console.log(`✓ ingest email (${r.provider}): ${r.parsed} parsed, ${r.inserted} new, ${r.updated} updated, ${r.skipped} skipped`);
+        } else if (sub === "remote") {
+          const r = await ingestRemoteBoards(db);
+          for (const [name, b] of Object.entries(r.boards)) {
+            const err = (b as { error?: string }).error;
+            console.log(
+              err
+                ? `  ✗ ${name}: ${err}`
+                : `  ✓ ${name}: ${b.fetched} fetched, ${b.inserted} new, ${b.updated} updated, ${b.companies} companies`,
+            );
+          }
         } else {
-          throw new Error("usage: jr ingest [hn|email <file>]");
+          throw new Error("usage: jr ingest [hn|email <file>|remote]");
         }
         break;
       }
@@ -439,6 +450,7 @@ Usage:
   P4 ingestion (non-ATS sources):
   pnpm jr ingest hn               parse the latest HN "Who is hiring" thread
   pnpm jr ingest email <file>     parse a saved job-alert email (LinkedIn/Wellfound/…)
+  pnpm jr ingest remote           pull free remote boards (Remotive/RemoteOK/Arbeitnow)
   pnpm jr digest [--dry-run]      build + send the daily digest
   pnpm jr digest --top 15 --since 3
 
