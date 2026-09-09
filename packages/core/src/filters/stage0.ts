@@ -46,6 +46,39 @@ export const TITLE_BLOCKLIST = [
   "director",
   "vice president",
   "head of",
+  // hardware / silicon / electrical (not software roles)
+  "asic",
+  "fpga",
+  "vlsi",
+  "silicon",
+  "semiconductor",
+  "physical design",
+  "package layout",
+  "layout engineer",
+  "signal integrity",
+  "power integrity",
+  "thermal",
+  "hardware engineer",
+  "hardware qa",
+  "hwqa",
+  "gpu architect",
+  "fabrics",
+  "pcb",
+  "board design",
+  "firmware", // remove this line if you want embedded/firmware roles
+  "robotics",
+  // QA / test / validation (not software engineering)
+  "test engineer",
+  "test developer",
+  "sdet",
+  "qa engineer",
+  "quality assurance",
+  "validation engineer",
+  "verification engineer",
+  // field / support engineering (customer-facing, not IC software)
+  "field engineer",
+  "field application",
+  "technical services",
 ];
 
 /** SQL: title passes the denylist, keyed to a table alias. */
