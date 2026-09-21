@@ -28,7 +28,10 @@ function anthropic(): Anthropic {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not set (needed for extraction + judge).");
   }
-  return (_anthropic ??= new Anthropic());
+  // maxRetries: the SDK honors Retry-After on 429/529 with exponential backoff.
+  // Bumped from the default 2 because scoring several profiles back-to-back
+  // (180+ judge calls) otherwise exhausts the rate limit and silently drops jobs.
+  return (_anthropic ??= new Anthropic({ maxRetries: 8 }));
 }
 
 // ---------------------------------------------------------------------------

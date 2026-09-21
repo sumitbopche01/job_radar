@@ -340,7 +340,7 @@ async function main() {
         });
         process.stdout.write("\n");
         console.log(
-          `✓ score ${label}: retrieved ${res.retrieved}, judged ${res.judged}, escalated ${res.escalated}, skipped(unenriched) ${res.skippedUnenriched}`,
+          `✓ score ${label}: retrieved ${res.retrieved}, judged ${res.judged}, escalated ${res.escalated}, failed ${res.failed}, skipped(unenriched) ${res.skippedUnenriched}`,
         );
         break;
       }

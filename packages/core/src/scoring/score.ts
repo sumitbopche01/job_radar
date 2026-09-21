@@ -20,6 +20,7 @@ export interface ScoreResult {
   judged: number;
   escalated: number;
   skippedUnenriched: number;
+  failed: number;
 }
 
 /** Up to k labeled examples nearest to this candidate by embedding (calibration). */
@@ -72,7 +73,8 @@ export async function scoreProfile(
   const concurrency = opts.concurrency ?? 5;
 
   const retrieved = await retrieve(db, profile, { limit, sinceDays: opts.sinceDays });
-  if (retrieved.length === 0) return { retrieved: 0, judged: 0, escalated: 0, skippedUnenriched: 0 };
+  if (retrieved.length === 0)
+    return { retrieved: 0, judged: 0, escalated: 0, skippedUnenriched: 0, failed: 0 };
 
   // load distilled summaries for the survivors
   const ids = retrieved.map((r) => r.jobId);
@@ -97,6 +99,7 @@ export async function scoreProfile(
   const queue = new PQueue({ concurrency });
   const judged: { jobId: string; title: string; company: string; fit: number }[] = [];
   let done = 0;
+  let failed = 0;
   await Promise.all(
     candidates.map((r) =>
       queue.add(async () => {
@@ -116,7 +119,7 @@ export async function scoreProfile(
           await upsertScore(db, r.jobId, profile.id, "s2", rubric.fit_score, rubric, MODELS.judge);
           judged.push({ jobId: r.jobId, title: r.title, company: r.companyName, fit: rubric.fit_score });
         } catch {
-          /* skip failed judge */
+          failed++; // surfaced in the result — no longer silently swallowed
         } finally {
           opts.onProgress?.(++done, candidates.length);
         }
@@ -148,5 +151,5 @@ export async function scoreProfile(
     }
   }
 
-  return { retrieved: retrieved.length, judged: judged.length, escalated, skippedUnenriched };
+  return { retrieved: retrieved.length, judged: judged.length, escalated, skippedUnenriched, failed };
 }
