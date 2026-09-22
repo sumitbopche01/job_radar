@@ -16,6 +16,8 @@ import {
   ingestAlertEmail,
   ingestHiringThread,
   ingestRemoteBoards,
+  researchJob,
+  researchShortlisted,
   resolveAtsWithAgent,
   runLiveness,
   upsertDiscovered,
@@ -288,6 +290,26 @@ async function main() {
         }
         break;
       }
+      case "research": {
+        const arg = _[1];
+        if (!arg || arg === "--shortlisted" || flags.shortlisted) {
+          const r = await researchShortlisted(db, {
+            limit: num(flags.limit) ?? 20,
+            onProgress: (c, ok) => console.log(`  ${ok ? "✓" : "✗"} ${c}`),
+          });
+          console.log(`✓ research: ${r.done} done, ${r.failed} failed`);
+        } else {
+          const res = await researchJob(db, arg);
+          if (!res) console.log("✗ research: no result (or model returned nothing)");
+          else {
+            console.log(`✓ research: ${res.contacts.length} contacts`);
+            for (const c of res.contacts)
+              console.log(`  ${c.name} — ${c.role}${c.linkedinUrl ? ` · ${c.linkedinUrl}` : ""}`);
+            console.log(`  ${res.summary}`);
+          }
+        }
+        break;
+      }
       case "enrich": {
         const res = await enrichJobs(db, {
           limit: num(flags.limit) ?? 200,
@@ -462,6 +484,8 @@ Usage:
   pnpm jr score <profile>         stage-1 -> stage-2 judge, writes job_scores
   pnpm jr eval scaffold [--n 50]  write an unlabeled eval set to label by hand
   pnpm jr eval run <profile>      measure precision@10 against labels
+  pnpm jr research <jobId>        find hiring manager + LinkedIn + dossier (web search)
+  pnpm jr research --shortlisted  research all shortlisted applications
 
   pnpm jr export [path]           write applications.csv for the job-search skill
   pnpm jr stats                   show pipeline counts

@@ -14,6 +14,8 @@ export const MODELS = {
   extract: process.env.JR_MODEL_EXTRACT ?? "claude-haiku-4-5",
   judge: process.env.JR_MODEL_JUDGE ?? "claude-haiku-4-5",
   judgeTop: process.env.JR_MODEL_JUDGE_TOP ?? "claude-sonnet-5",
+  // research agent uses web search — needs a model that supports web_search_20260209
+  research: process.env.JR_MODEL_RESEARCH ?? "claude-sonnet-5",
 } as const;
 
 export function hasOpenAI(): boolean {
@@ -32,6 +34,11 @@ function anthropic(): Anthropic {
   // Bumped from the default 2 because scoring several profiles back-to-back
   // (180+ judge calls) otherwise exhausts the rate limit and silently drops jobs.
   return (_anthropic ??= new Anthropic({ maxRetries: 8 }));
+}
+
+/** The shared Anthropic client (throws if no key) — for callers needing raw access. */
+export function anthropicClient(): Anthropic {
+  return anthropic();
 }
 
 // ---------------------------------------------------------------------------

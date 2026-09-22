@@ -30,6 +30,7 @@ export interface TriageItem {
   descriptionMd: string;
   score: number | null;
   rubric: Rubric | null;
+  contacts: { label: string; url: string }[];
 }
 
 const REJECT_REASONS: Record<string, string> = {
@@ -315,6 +316,8 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
 
                 {current.rubric && <MatchCard rubric={current.rubric} score={current.score} />}
 
+                <ReachOut contacts={current.contacts} />
+
                 {/* description */}
                 <div className="rounded-xl border border-line bg-white p-5 shadow-sm sm:p-6">
                   <h3 className="mb-3 text-sm font-semibold text-neutral-900">About the role</h3>
@@ -370,6 +373,34 @@ function ScoreBadge({ score }: { score: number }) {
     <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums ${tone}`}>
       {score}
     </span>
+  );
+}
+
+function ReachOut({ contacts }: { contacts: { label: string; url: string }[] }) {
+  if (!contacts || contacts.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-line bg-white p-5 shadow-sm sm:p-6">
+      <h3 className="text-sm font-semibold text-neutral-900">Reach out — don&apos;t just apply</h3>
+      <p className="mb-3 mt-0.5 text-xs text-neutral-500">
+        Find the hiring manager or a team member on LinkedIn (opens in your account), then send a short note.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {contacts.map((c) => (
+          <a
+            key={c.label}
+            href={c.url}
+            target="_blank"
+            rel="noopener"
+            className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand-light/50 px-3 py-1.5 text-[13px] font-medium text-brand-dark transition-colors hover:bg-brand-light"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="size-3.5" aria-hidden="true">
+              <path d="M4.98 3.5A2.5 2.5 0 1 0 5 8.5a2.5 2.5 0 0 0 0-5ZM3 9h4v12H3V9Zm6 0h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.5 4.78 5.75V21H17.6v-5.9c0-1.4-.03-3.2-2-3.2-2 0-2.3 1.53-2.3 3.1V21H9V9Z" />
+            </svg>
+            {c.label}
+          </a>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -16,7 +16,7 @@ export default async function PipelinePage() {
 
   return (
     <main className="flex h-dvh flex-col bg-canvas">
-      <TopBar active={null} page="pipeline" count={items.length} />
+      <TopBar page="pipeline" count={items.length} />
       <PipelineClient items={items} />
     </main>
   );

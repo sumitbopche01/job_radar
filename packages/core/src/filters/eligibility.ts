@@ -2,53 +2,109 @@ import { sql } from "drizzle-orm";
 
 /**
  * Geo-eligibility, modeled as data (design doc §14.3). Tuned to a candidate based
- * in India who can take:
- *   - Bengaluru / India onsite
- *   - remote roles doable from India (generic/global remote, or APAC/Asia)
- *   - Dubai / UAE onsite (employer sponsors visa)
+ * in India who is open to:
+ *   - India onsite (Bengaluru etc.)
+ *   - remote doable from India (generic/global remote, APAC/Asia)
+ *   - Dubai / UAE onsite (visa sponsored)
  *   - Singapore onsite
- *   - international contract (has an entity for foreign payments)
+ *   - Europe onsite + remote (relocation / visa sponsorship OK) — priority region
  *
- * This is the single place to adjust "where can I work". It's a coarse, high-recall
- * gate — the LLM judge still reports fine-grained `eligibility_risk` (timezone /
- * work_auth) on what passes.
+ * Single source of truth for "where can I work". Coarse, high-recall — the LLM
+ * judge still reports fine-grained `eligibility_risk` (timezone / work_auth).
  *
- * Rule (allowlist, not blocklist): a job is eligible if
- *   (a) its location names an eligible geo, OR
+ * Rule (allowlist): a job is eligible if
+ *   (a) its location names an eligible geo (any REGION_PATTERNS below), OR
  *   (b) it's remote AND its location is *generic* (strips to nothing once the
- *       remote/global boilerplate is removed) — e.g. "Remote", "Remote - Global".
- * A remote role tied to a specific non-eligible place ("Remote - US", "San
- * Francisco", "London") is excluded because its stripped location is non-empty and
- * doesn't match an eligible geo.
+ *       remote/global boilerplate is removed).
  */
 
-/** Locations that are eligible whether onsite or remote. */
-export const ELIGIBLE_LOCATION_PATTERNS = [
-  "india",
-  "bengaluru",
-  "bangalore",
-  "gurugram",
-  "gurgaon",
-  "hyderabad",
-  "mumbai",
-  "new delhi",
-  "delhi",
-  "noida",
-  "pune",
-  "chennai",
-  "kolkata",
-  "dubai",
-  "abu dhabi",
-  "uae",
-  "u.a.e",
-  "united arab emirates",
-  "singapore",
-  "asia",
-  "apac",
-];
+/** Eligible geos grouped by region — also powers the region filter (region.ts). */
+export const REGION_PATTERNS: Record<string, string[]> = {
+  india: [
+    "india",
+    "bengaluru",
+    "bangalore",
+    "gurugram",
+    "gurgaon",
+    "hyderabad",
+    "mumbai",
+    "new delhi",
+    "delhi",
+    "noida",
+    "pune",
+    "chennai",
+    "kolkata",
+  ],
+  uae: ["dubai", "abu dhabi", "uae", "u.a.e", "united arab emirates"],
+  singapore: ["singapore"],
+  europe: [
+    "europe",
+    "emea",
+    "european union",
+    "united kingdom",
+    "england",
+    "scotland",
+    "ireland",
+    "germany",
+    "netherlands",
+    "france",
+    "spain",
+    "portugal",
+    "poland",
+    "sweden",
+    "denmark",
+    "finland",
+    "norway",
+    "switzerland",
+    "austria",
+    "italy",
+    "belgium",
+    "czech",
+    "czechia",
+    "romania",
+    "estonia",
+    "lithuania",
+    "latvia",
+    "greece",
+    "hungary",
+    "bulgaria",
+    "croatia",
+    "luxembourg",
+    // distinctive hubs (bare-city listings)
+    "london",
+    "berlin",
+    "munich",
+    "hamburg",
+    "frankfurt",
+    "amsterdam",
+    "paris",
+    "madrid",
+    "barcelona",
+    "dublin",
+    "lisbon",
+    "warsaw",
+    "krakow",
+    "stockholm",
+    "copenhagen",
+    "zurich",
+    "geneva",
+    "vienna",
+    "milan",
+    "brussels",
+    "helsinki",
+    "prague",
+    "tallinn",
+    "vilnius",
+    "budapest",
+  ],
+  asia: ["asia", "apac"],
+};
+
+/** Flattened eligible-location patterns. */
+export const ELIGIBLE_LOCATION_PATTERNS = Object.values(REGION_PATTERNS).flat();
 
 /** Boilerplate stripped from a location to decide whether a remote role is "generic". */
-const GENERIC_REMOTE_WORDS = [
+export const GENERIC_REMOTE_WORDS = [
   "remote",
   "global",
   "globally",
@@ -63,14 +119,22 @@ const GENERIC_REMOTE_WORDS = [
 ];
 const GENERIC_RE = new RegExp(`(${GENERIC_REMOTE_WORDS.join("|")})`, "g");
 
-function stripGeneric(loc: string): string {
+export function stripGeneric(loc: string): string {
   return loc
     .replace(GENERIC_RE, " ")
     .replace(/[^a-z]+/g, " ")
     .trim();
 }
 
-/** JS predicate mirroring the SQL clause — used in tests and any in-memory filtering. */
+/** SQL fragment: the location stripped of remote/generic words (empty = generic remote). */
+export function strippedLocSql(alias = "jobs"): string {
+  const loc = `lower(coalesce(${alias}.location_raw, ''))`;
+  return `btrim(regexp_replace(regexp_replace(${loc}, '(${GENERIC_REMOTE_WORDS.join(
+    "|",
+  )})', ' ', 'g'), '[^a-z]+', ' ', 'g'))`;
+}
+
+/** JS predicate mirroring the SQL clause. */
 export function isEligible(location: string | null | undefined, remoteType: string): boolean {
   const loc = (location ?? "").toLowerCase();
   if (ELIGIBLE_LOCATION_PATTERNS.some((p) => loc.includes(p))) return true;
@@ -78,17 +142,12 @@ export function isEligible(location: string | null | undefined, remoteType: stri
   return false;
 }
 
-/**
- * SQL condition equivalent, keyed to a table alias (default "jobs"; retrieve uses "j").
- * Patterns are trusted code constants (no user input), inlined as literals.
- */
+/** SQL eligibility condition, keyed to a table alias (default "jobs"; retrieve uses "j"). */
 export function eligibilityClause(alias = "jobs") {
   const loc = `lower(coalesce(${alias}.location_raw, ''))`;
   const eligibleLike =
     "(" + ELIGIBLE_LOCATION_PATTERNS.map((p) => `${loc} like '%${p}%'`).join(" or ") + ")";
-  // strip remote/global boilerplate and all non-letters; generic remote => empty
-  const stripped = `btrim(regexp_replace(regexp_replace(${loc}, '(${GENERIC_REMOTE_WORDS.join(
-    "|",
-  )})', ' ', 'g'), '[^a-z]+', ' ', 'g'))`;
-  return sql.raw(`(${eligibleLike} or (${alias}.remote_type = 'remote' and ${stripped} = ''))`);
+  return sql.raw(
+    `(${eligibleLike} or (${alias}.remote_type = 'remote' and ${strippedLocSql(alias)} = ''))`,
+  );
 }

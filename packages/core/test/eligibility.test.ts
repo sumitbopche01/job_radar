@@ -25,17 +25,23 @@ describe("isEligible", () => {
     expect(isEligible("Remote - India", "remote")).toBe(true);
   });
 
+  it("keeps Europe onsite + remote (relocation OK — priority region)", () => {
+    expect(isEligible("London, UK", "onsite")).toBe(true);
+    expect(isEligible("Berlin, Germany", "onsite")).toBe(true);
+    expect(isEligible("Amsterdam", "onsite")).toBe(true);
+    expect(isEligible("Remote (EMEA)", "remote")).toBe(true);
+    expect(isEligible("Remote - Europe", "remote")).toBe(true);
+  });
+
   it("drops onsite outside eligible geos", () => {
     expect(isEligible("San Francisco, CA", "onsite")).toBe(false);
-    expect(isEligible("London, UK", "onsite")).toBe(false);
     expect(isEligible("Tokyo, Japan", "onsite")).toBe(false);
     expect(isEligible("United States", "onsite")).toBe(false);
   });
 
-  it("drops region-locked remote", () => {
+  it("drops US/Americas/other region-locked remote", () => {
     expect(isEligible("Remote - US", "remote")).toBe(false);
     expect(isEligible("Remote - USA", "remote")).toBe(false);
-    expect(isEligible("Remote (EMEA)", "remote")).toBe(false);
     expect(isEligible("Remote - Canada", "remote")).toBe(false);
     expect(isEligible("Remote - Americas", "remote")).toBe(false);
   });
@@ -43,7 +49,6 @@ describe("isEligible", () => {
   it("drops remote roles pinned to a non-eligible city (the HQ-remote trap)", () => {
     expect(isEligible("San Francisco", "remote")).toBe(false);
     expect(isEligible("New York, NY (HQ)", "remote")).toBe(false);
-    expect(isEligible("London", "remote")).toBe(false);
     expect(isEligible("San Francisco, CA, US; Remote, US", "remote")).toBe(false);
   });
 

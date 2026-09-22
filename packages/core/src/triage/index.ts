@@ -4,6 +4,7 @@ import { applications, companies, feedback, jobs } from "../db/schema.js";
 import { TITLE_BLOCKLIST } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
+import { regionClause, type Region } from "../filters/region.js";
 
 const notBlockedTitle = () =>
   TITLE_BLOCKLIST.map(
@@ -34,6 +35,8 @@ export interface TriageOptions {
   sinceDays?: number;
   /** when set, join that profile's stage-2 score/rubric and order by score first */
   profileLabel?: string;
+  /** when set, restrict to a geographic region (india/europe/uae/singapore/remote) */
+  region?: Region;
 }
 
 /**
@@ -88,6 +91,9 @@ export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<
         eligibilityClause("jobs"),
 
         roleTargetClause("jobs"),
+
+
+        opts.region ? regionClause(opts.region, "jobs") : undefined,
         ...notBlockedTitle(),
       ),
     )
@@ -117,6 +123,9 @@ export async function getTriageCount(db: Db, opts: TriageOptions = {}): Promise<
         eligibilityClause("jobs"),
 
         roleTargetClause("jobs"),
+
+
+        opts.region ? regionClause(opts.region, "jobs") : undefined,
         ...notBlockedTitle(),
       ),
     );

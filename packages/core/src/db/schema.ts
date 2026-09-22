@@ -203,6 +203,19 @@ export const jobScores = pgTable(
   ],
 );
 
+export const jobResearch = pgTable("job_research", {
+  jobId: uuid("job_id")
+    .primaryKey()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  // { funding, headcount, hiresInIndia, hiresInEurope, istOverlap, recent[] }
+  dossier: jsonb("dossier"),
+  // [{ name, role, linkedinUrl, source }]
+  contacts: jsonb("contacts"),
+  summary: text("summary"),
+  model: text("model"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const feedback = pgTable("feedback", {
   id: uuid("id").primaryKey().defaultRandom(),
   jobId: uuid("job_id")
