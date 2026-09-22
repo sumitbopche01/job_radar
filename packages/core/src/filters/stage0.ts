@@ -79,6 +79,11 @@ export const TITLE_BLOCKLIST = [
   "field engineer",
   "field application",
   "technical services",
+  // SRE / DevOps / mobile — not the target IC software families
+  "site reliability",
+  "reliability engineer",
+  "devops",
+  "android",
 ];
 
 /** SQL: title passes the denylist, keyed to a table alias. */

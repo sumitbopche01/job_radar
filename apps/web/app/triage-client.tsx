@@ -42,6 +42,7 @@ const REJECT_REASONS: Record<string, string> = {
   "0": "other",
 };
 
+// ---------- helpers ----------
 function salaryLabel(j: TriageItem): string | null {
   const { salaryMin: min, salaryMax: max, salaryCurrency } = j;
   if (min == null && max == null) return null;
@@ -67,7 +68,33 @@ function dayLabel(iso: string): string {
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
-export function TriageClient({ items }: { items: TriageItem[] }) {
+function relTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const d = Math.floor(diff / 86400000);
+  if (d >= 1) return `${d}d ago`;
+  const h = Math.floor(diff / 3600000);
+  if (h >= 1) return `${h}h ago`;
+  return "Just now";
+}
+
+const AVATAR_COLORS = [
+  "bg-sky-100 text-sky-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-amber-100 text-amber-700",
+  "bg-rose-100 text-rose-700",
+  "bg-teal-100 text-teal-700",
+  "bg-orange-100 text-orange-700",
+  "bg-cyan-100 text-cyan-700",
+  "bg-blue-100 text-blue-700",
+];
+function avatarClass(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]!;
+}
+
+// ---------- component ----------
+export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: boolean }) {
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState(0);
   const [query, setQuery] = useState("");
@@ -95,20 +122,16 @@ export function TriageClient({ items }: { items: TriageItem[] }) {
     if (current) rowRefs.current.get(current.id)?.scrollIntoView({ block: "nearest" });
   }, [current]);
 
-  const act = useCallback(
-    (fn: () => Promise<void>, id: string) => {
-      setRemoved((prev) => new Set(prev).add(id));
-      setRejecting(false);
-      startTransition(() => {
-        void fn();
-      });
-    },
-    [],
-  );
+  const act = useCallback((fn: () => Promise<void>, id: string) => {
+    setRemoved((prev) => new Set(prev).add(id));
+    setRejecting(false);
+    startTransition(() => {
+      void fn();
+    });
+  }, []);
 
   const onKey = useCallback(
     (e: KeyboardEvent) => {
-      // let the search box own the keyboard while focused
       if (searching) {
         if (e.key === "Escape") {
           setSearching(false);
@@ -116,16 +139,13 @@ export function TriageClient({ items }: { items: TriageItem[] }) {
         }
         return;
       }
-
       if (rejecting) {
         if (e.key === "Escape") return setRejecting(false);
         if (e.key in REJECT_REASONS && current) {
-          const reason = REJECT_REASONS[e.key];
-          return act(() => rejectAction(current.id, reason), current.id);
+          return act(() => rejectAction(current.id, REJECT_REASONS[e.key]), current.id);
         }
         return;
       }
-
       switch (e.key) {
         case "j":
         case "ArrowDown":
@@ -166,31 +186,34 @@ export function TriageClient({ items }: { items: TriageItem[] }) {
 
   return (
     <div className="flex min-h-0 flex-1">
-      {/* list */}
-      <div className="flex w-2/5 min-w-[320px] flex-col border-r border-neutral-200 dark:border-neutral-800">
-        <div className="border-b border-neutral-200 p-2 dark:border-neutral-800">
-          <input
-            ref={searchRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => setSearching(true)}
-            onBlur={() => setSearching(false)}
-            placeholder="/ to search title or company"
-            className="w-full rounded bg-neutral-100 px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-neutral-400 dark:bg-neutral-900"
-          />
+      {/* ---------- list ---------- */}
+      <div className="flex w-2/5 min-w-[340px] max-w-[460px] flex-col border-r border-line bg-white">
+        <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
+          <div className="relative flex-1">
+            <SearchIcon />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setSearching(true)}
+              onBlur={() => setSearching(false)}
+              placeholder="Search title or company"
+              className="w-full rounded-full border border-line bg-neutral-50 py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/20"
+            />
+          </div>
+          <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-neutral-500">
+            {ranked ? "by fit" : "newest"}
+          </span>
         </div>
+
         <ul className="min-h-0 flex-1 overflow-y-auto">
-          {visible.length === 0 && (
-            <li className="p-6 text-center text-sm text-neutral-500">
-              Queue empty. Run <code className="rounded bg-neutral-200 px-1 dark:bg-neutral-800">jr crawl</code> for more.
-            </li>
-          )}
+          {visible.length === 0 && <EmptyState hasItems={items.length > 0} />}
           {visible.map((j, i) => {
             const prev = visible[i - 1];
             const day = dayLabel(j.postedAt ?? j.firstSeenAt);
-            const prevDay = prev ? dayLabel(prev.postedAt ?? prev.firstSeenAt) : null;
-            const showDay = day !== prevDay;
+            const showDay = !ranked && day !== (prev ? dayLabel(prev.postedAt ?? prev.firstSeenAt) : null);
             const isSel = i === clampedIndex;
+            const sal = salaryLabel(j);
             return (
               <li
                 key={j.id}
@@ -199,26 +222,43 @@ export function TriageClient({ items }: { items: TriageItem[] }) {
                 }}
               >
                 {showDay && (
-                  <div className="sticky top-0 bg-neutral-100 px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
+                  <div className="sticky top-0 z-10 bg-neutral-50/95 px-4 py-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400 backdrop-blur">
                     {day}
                   </div>
                 )}
                 <button
                   onClick={() => setSelected(i)}
-                  className={`flex w-full flex-col items-start gap-0.5 border-l-2 px-3 py-2 text-left ${
+                  className={`flex w-full gap-3 border-b border-line/70 border-l-2 px-3 py-3 text-left transition-colors ${
                     isSel
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40"
-                      : "border-transparent hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                      ? "border-l-brand bg-brand-light/60"
+                      : "border-l-transparent hover:bg-neutral-50"
                   }`}
                 >
-                  <span className="flex w-full items-center gap-2">
-                    {j.score != null && <ScoreBadge score={j.score} />}
-                    <span className="line-clamp-1 text-sm font-medium">{j.title}</span>
-                  </span>
-                  <span className="line-clamp-1 text-xs text-neutral-500">
-                    {j.companyName} · {locLabel(j)}
-                    {salaryLabel(j) ? ` · ${salaryLabel(j)}` : ""}
-                  </span>
+                  <Avatar name={j.companyName} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <span
+                        className={`line-clamp-2 text-[15px] font-semibold leading-snug ${
+                          isSel ? "text-brand-dark" : "text-neutral-900"
+                        }`}
+                      >
+                        {j.title}
+                      </span>
+                      {j.score != null && <ScoreBadge score={j.score} />}
+                    </div>
+                    <div className="mt-0.5 line-clamp-1 text-[13px] text-neutral-700">{j.companyName}</div>
+                    <div className="mt-0.5 line-clamp-1 text-xs text-neutral-500">
+                      {locLabel(j)}
+                      {sal ? ` · ${sal}` : ""}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <Tag tone={j.remoteType === "remote" ? "green" : "plain"}>
+                        {j.remoteType === "remote" ? "Remote" : j.remoteType}
+                      </Tag>
+                      <Tag tone="plain">{j.source}</Tag>
+                      <span className="text-[11px] text-neutral-400">{relTime(j.postedAt ?? j.firstSeenAt)}</span>
+                    </div>
+                  </div>
                 </button>
               </li>
             );
@@ -226,43 +266,69 @@ export function TriageClient({ items }: { items: TriageItem[] }) {
         </ul>
       </div>
 
-      {/* detail */}
+      {/* ---------- detail ---------- */}
       <div className="flex min-h-0 flex-1 flex-col">
         {current ? (
           <>
-            <div className="min-h-0 flex-1 overflow-y-auto p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-balance">{current.title}</h2>
-                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                    {current.companyName} · {locLabel(current)}
-                    {salaryLabel(current) ? ` · ${salaryLabel(current)}` : ""}
-                  </p>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    {current.employmentType !== "unknown" ? `${current.employmentType} · ` : ""}
-                    {current.source} · posted{" "}
-                    {new Date(current.postedAt ?? current.firstSeenAt).toLocaleDateString()}
-                  </p>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
+                {/* header card */}
+                <div className="rounded-xl border border-line bg-white p-5 shadow-sm sm:p-6">
+                  <div className="flex items-start gap-4">
+                    <Avatar name={current.companyName} size="lg" />
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-xl font-semibold leading-tight text-balance text-neutral-900">
+                        {current.title}
+                      </h2>
+                      <p className="mt-1 text-[15px] font-medium text-neutral-700">{current.companyName}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <Tag tone="plain">📍 {locLabel(current)}</Tag>
+                        {salaryLabel(current) && <Tag tone="green">{salaryLabel(current)}</Tag>}
+                        {current.employmentType !== "unknown" && (
+                          <Tag tone="plain">{current.employmentType.replace("_", " ")}</Tag>
+                        )}
+                        <Tag tone="plain">{current.source}</Tag>
+                        <span className="text-xs text-neutral-400">
+                          posted {relTime(current.postedAt ?? current.firstSeenAt)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center gap-2">
+                    <a
+                      href={current.applyUrl}
+                      target="_blank"
+                      rel="noopener"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
+                    >
+                      Open posting
+                      <span className="text-xs opacity-70">(o)</span>
+                    </a>
+                    <button
+                      onClick={() => act(() => shortlistAction(current.id), current.id)}
+                      className="rounded-full border border-brand px-4 py-2 text-sm font-semibold text-brand transition-colors hover:bg-brand-light"
+                    >
+                      Shortlist (s)
+                    </button>
+                  </div>
                 </div>
-                <a
-                  href={current.applyUrl}
-                  target="_blank"
-                  rel="noopener"
-                  className="shrink-0 rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900"
-                >
-                  Open (o)
-                </a>
-              </div>
-              {current.rubric && <RubricPanel rubric={current.rubric} score={current.score} />}
-              <div className="mt-4 whitespace-pre-wrap text-pretty text-sm leading-relaxed text-neutral-800 dark:text-neutral-200">
-                {current.descriptionMd || "No description."}
+
+                {current.rubric && <MatchCard rubric={current.rubric} score={current.score} />}
+
+                {/* description */}
+                <div className="rounded-xl border border-line bg-white p-5 shadow-sm sm:p-6">
+                  <h3 className="mb-3 text-sm font-semibold text-neutral-900">About the role</h3>
+                  <div className="whitespace-pre-wrap text-pretty text-[14px] leading-relaxed text-neutral-700">
+                    {current.descriptionMd || "No description available for this source."}
+                  </div>
+                </div>
               </div>
             </div>
             <Footer rejecting={rejecting} />
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-sm text-neutral-500">
-            Nothing selected.
+          <div className="flex flex-1 items-center justify-center text-sm text-neutral-400">
+            Select a job to see details.
           </div>
         )}
       </div>
@@ -270,66 +336,86 @@ export function TriageClient({ items }: { items: TriageItem[] }) {
   );
 }
 
-function Footer({ rejecting }: { rejecting: boolean }) {
+// ---------- pieces ----------
+function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg" }) {
+  const initials = name.replace(/[^a-zA-Z0-9 ]/g, "").trim().slice(0, 2).toUpperCase() || "?";
+  const dim = size === "lg" ? "size-12 text-base rounded-xl" : "size-10 text-sm rounded-lg";
   return (
-    <div className="border-t border-neutral-200 px-4 py-2 text-xs text-neutral-500 dark:border-neutral-800">
-      {rejecting ? (
-        <span className="text-red-600 dark:text-red-400">
-          Reject reason: 1 seniority · 2 location/tz · 3 comp · 4 stack · 5 domain · 6 company · 0 other · Esc cancel
-        </span>
-      ) : (
-        <span>
-          <Kbd>j</Kbd>/<Kbd>k</Kbd> move · <Kbd>s</Kbd> shortlist · <Kbd>x</Kbd> reject · <Kbd>a</Kbd>{" "}
-          applied · <Kbd>o</Kbd> open · <Kbd>/</Kbd> search
-        </span>
-      )}
-    </div>
+    <span className={`flex shrink-0 items-center justify-center font-semibold ${dim} ${avatarClass(name)}`}>
+      {initials}
+    </span>
+  );
+}
+
+function Tag({ children, tone }: { children: React.ReactNode; tone: "plain" | "green" }) {
+  const cls =
+    tone === "green"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-600/10"
+      : "bg-neutral-100 text-neutral-600 ring-neutral-500/10";
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ring-1 ${cls}`}>
+      {children}
+    </span>
   );
 }
 
 function ScoreBadge({ score }: { score: number }) {
   const tone =
     score >= 80
-      ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300"
+      ? "bg-emerald-100 text-emerald-800"
       : score >= 60
-        ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-        : "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400";
+        ? "bg-amber-100 text-amber-800"
+        : "bg-neutral-100 text-neutral-500";
   return (
-    <span className={`shrink-0 rounded px-1.5 text-[11px] font-semibold tabular-nums ${tone}`}>{score}</span>
+    <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums ${tone}`}>
+      {score}
+    </span>
   );
 }
 
-function RubricPanel({ rubric, score }: { rubric: Rubric; score: number | null }) {
+function MatchCard({ rubric, score }: { rubric: Rubric; score: number | null }) {
   return (
-    <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900/50">
-      <div className="flex items-center gap-2">
+    <div className="rounded-xl border border-line bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex items-center gap-3">
         {score != null && <ScoreBadge score={score} />}
-        {rubric.seniority_match && (
-          <span className="text-xs text-neutral-500">seniority: {rubric.seniority_match}</span>
-        )}
-        {rubric.eligibility_risk && rubric.eligibility_risk !== "none" && (
-          <span className="text-xs font-medium text-red-600 dark:text-red-400">
-            risk: {rubric.eligibility_risk}
-          </span>
-        )}
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-900">Match analysis</h3>
+          <p className="text-xs text-neutral-500">
+            {rubric.seniority_match ? `seniority ${rubric.seniority_match}` : "AI-scored fit"}
+            {rubric.eligibility_risk && rubric.eligibility_risk !== "none" && (
+              <span className="ml-1 font-medium text-rose-600">· risk: {rubric.eligibility_risk}</span>
+            )}
+          </p>
+        </div>
       </div>
-      {rubric.hook && <p className="mt-2 text-pretty font-medium">{rubric.hook}</p>}
+
+      {rubric.hook && (
+        <p className="mt-3 rounded-lg bg-brand-light px-3 py-2 text-sm text-brand-dark">{rubric.hook}</p>
+      )}
+
       {rubric.evidence && rubric.evidence.length > 0 && (
-        <div className="mt-2">
-          <p className="text-xs font-semibold text-neutral-500">Evidence</p>
-          <ul className="ml-4 list-disc text-sm text-neutral-700 dark:text-neutral-300">
+        <div className="mt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Why it fits</p>
+          <ul className="mt-1 space-y-1">
             {rubric.evidence.map((e, i) => (
-              <li key={i}>{e}</li>
+              <li key={i} className="flex gap-2 text-[13px] text-neutral-700">
+                <span className="mt-0.5 text-emerald-600">✓</span>
+                <span className="text-pretty">{e}</span>
+              </li>
             ))}
           </ul>
         </div>
       )}
+
       {rubric.gaps && rubric.gaps.length > 0 && (
-        <div className="mt-2">
-          <p className="text-xs font-semibold text-neutral-500">Gaps</p>
-          <ul className="ml-4 list-disc text-sm text-neutral-700 dark:text-neutral-300">
+        <div className="mt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Gaps</p>
+          <ul className="mt-1 space-y-1">
             {rubric.gaps.map((g, i) => (
-              <li key={i}>{g}</li>
+              <li key={i} className="flex gap-2 text-[13px] text-neutral-700">
+                <span className="mt-0.5 text-amber-500">•</span>
+                <span className="text-pretty">{g}</span>
+              </li>
             ))}
           </ul>
         </div>
@@ -338,10 +424,77 @@ function RubricPanel({ rubric, score }: { rubric: Rubric; score: number | null }
   );
 }
 
+function Footer({ rejecting }: { rejecting: boolean }) {
+  return (
+    <div className="shrink-0 border-t border-line bg-white px-4 py-2.5 text-xs text-neutral-500">
+      {rejecting ? (
+        <span className="font-medium text-rose-600">
+          Reject reason — <Kbd>1</Kbd> seniority · <Kbd>2</Kbd> location/tz · <Kbd>3</Kbd> comp ·{" "}
+          <Kbd>4</Kbd> stack · <Kbd>5</Kbd> domain · <Kbd>6</Kbd> company · <Kbd>0</Kbd> other ·{" "}
+          <Kbd>Esc</Kbd> cancel
+        </span>
+      ) : (
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span>
+            <Kbd>j</Kbd> <Kbd>k</Kbd> move
+          </span>
+          <span>
+            <Kbd>s</Kbd> shortlist
+          </span>
+          <span>
+            <Kbd>x</Kbd> reject
+          </span>
+          <span>
+            <Kbd>a</Kbd> applied
+          </span>
+          <span>
+            <Kbd>o</Kbd> open
+          </span>
+          <span>
+            <Kbd>/</Kbd> search
+          </span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ hasItems }: { hasItems: boolean }) {
+  return (
+    <li className="flex flex-col items-center gap-2 p-10 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
+        ✓
+      </span>
+      <p className="text-sm font-medium text-neutral-700">
+        {hasItems ? "No matches for this search" : "You're all caught up"}
+      </p>
+      <p className="max-w-xs text-xs text-neutral-500">
+        {hasItems
+          ? "Clear the search to see the rest of the queue."
+          : "Run a crawl to pull fresh openings into the queue."}
+      </p>
+    </li>
+  );
+}
+
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="rounded border border-neutral-300 bg-neutral-100 px-1 font-mono text-[10px] dark:border-neutral-700 dark:bg-neutral-800">
+    <kbd className="rounded border border-neutral-300 bg-neutral-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-neutral-600 shadow-sm">
       {children}
     </kbd>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400"
+      aria-hidden="true"
+    >
+      <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M14 14L17 17" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
   );
 }

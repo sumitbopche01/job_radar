@@ -1,0 +1,84 @@
+import Link from "next/link";
+
+const PROFILES = [
+  { slug: "", label: "Fresh" },
+  { slug: "agent-llm-infra", label: "AI / LLM Infra" },
+  { slug: "fullstack-ai", label: "Full-stack AI" },
+  { slug: "backend-platform", label: "Backend / Platform" },
+];
+
+function Logo() {
+  return (
+    <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-white">
+      <svg viewBox="0 0 24 24" fill="none" className="size-5" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.6" opacity="0.5" />
+        <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.6" opacity="0.8" />
+        <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+        <path d="M12 12L18 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
+export function TopBar({
+  active,
+  page,
+  count,
+}: {
+  active: string | null;
+  page: "triage" | "pipeline";
+  count?: number;
+}) {
+  return (
+    <header className="z-20 flex h-14 shrink-0 items-center gap-4 border-b border-line bg-white px-4 shadow-sm">
+      <Link href="/" className="flex items-center gap-2">
+        <Logo />
+        <span className="text-[15px] font-semibold tracking-tight text-neutral-900">Job Radar</span>
+      </Link>
+
+      {page === "triage" && (
+        <nav className="ml-2 hidden items-center gap-1 lg:flex">
+          {PROFILES.map((p) => {
+            const isActive = (active ?? "") === p.slug;
+            return (
+              <Link
+                key={p.slug}
+                href={p.slug ? `/?profile=${p.slug}` : "/"}
+                className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                  isActive
+                    ? "bg-brand-light text-brand-dark"
+                    : "text-neutral-600 hover:bg-neutral-100"
+                }`}
+              >
+                {p.label}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
+
+      <div className="ml-auto flex items-center gap-1">
+        {typeof count === "number" && (
+          <span className="mr-2 hidden text-[13px] tabular-nums text-neutral-500 sm:inline">
+            {count} {page === "pipeline" ? "applications" : "jobs"}
+          </span>
+        )}
+        <NavTab href="/" label="Triage" active={page === "triage"} />
+        <NavTab href="/pipeline" label="Pipeline" active={page === "pipeline"} />
+      </div>
+    </header>
+  );
+}
+
+function NavTab({ href, label, active }: { href: string; label: string; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors ${
+        active ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
+      }`}
+    >
+      {label}
+    </Link>
+  );
+}

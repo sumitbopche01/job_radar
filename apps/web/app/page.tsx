@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { getTriageQueue } from "@job-radar/core";
 import { db } from "@/lib/db";
 import { TriageClient, type TriageItem } from "./triage-client";
+import { TopBar } from "./nav";
 
 export const dynamic = "force-dynamic";
 
@@ -22,22 +22,9 @@ export default async function TriagePage({
   }));
 
   return (
-    <main className="flex h-dvh flex-col">
-      <header className="flex items-center justify-between border-b border-neutral-200 px-4 py-2 dark:border-neutral-800">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-sm font-semibold">Job Radar</h1>
-          <span className="text-xs text-neutral-500">
-            {items.length} in queue{profile ? ` · ranked: ${profile}` : " · freshness"}
-          </span>
-        </div>
-        <nav className="flex items-center gap-4 text-xs">
-          <span className="font-medium">Triage</span>
-          <Link href="/pipeline" className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">
-            Pipeline →
-          </Link>
-        </nav>
-      </header>
-      <TriageClient items={items} />
+    <main className="flex h-dvh flex-col bg-canvas">
+      <TopBar active={profile ?? ""} page="triage" count={items.length} />
+      <TriageClient items={items} ranked={Boolean(profile)} />
     </main>
   );
 }
