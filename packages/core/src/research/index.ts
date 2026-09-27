@@ -1,8 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { applications, companies, jobResearch, jobs } from "../db/schema.js";
-import { anthropicClient, MODELS } from "../llm/index.js";
+import { MODELS, webSearch } from "../llm/index.js";
 
 /**
  * Agent 2 — company research on shortlist (design §16). Uses Anthropic web search
@@ -31,60 +30,43 @@ export interface ResearchResult {
   summary: string;
 }
 
-const MAX_ROUNDS = 6;
-
-const SYSTEM =
-  "You are a job-search research assistant. Given a company and role, use web search to find: " +
-  "(1) the likely hiring manager or engineering leaders for this role, with each person's name, " +
-  "title, and PUBLIC LinkedIn profile URL if findable; (2) a brief company dossier (funding stage/recency, " +
-  "approx headcount/direction, whether they hire in India or Europe, IST/time-zone overlap, 1-2 recent launches). " +
-  "Cite a source URL for each contact and each dossier claim. Do NOT invent people or URLs — omit if unsure. " +
-  "When done, reply with ONLY a JSON object (no prose, no code fence) of shape: " +
-  `{"contacts":[{"name","role","linkedinUrl","source"}],"dossier":{"funding","headcount","hiresInIndia":bool,"hiresInEurope":bool,"istOverlap","recent":[...]},"summary":"2-3 sentences"}.`;
+const PROMPT = (company: string, title: string, location: string | null) =>
+  `You are a job-search research assistant. Use web search to research the company "${company}" ` +
+  `hiring for the role "${title}"${location ? ` (${location})` : ""}.\n\n` +
+  `Find:\n` +
+  `1) Up to 5 REAL, NAMED people worth reaching out to for this role — e.g. the engineering manager/leaders ` +
+  `(Head of Engineering, VP Eng, CTO, Director of Engineering), a relevant team member, or a named recruiter. ` +
+  `Search for actual individuals (their real full name) currently at this company. For each, give: full name, ` +
+  `their title, and a PUBLIC profile URL (their real LinkedIn /in/ URL if you find it, otherwise the page you ` +
+  `found them on) plus a source URL.\n` +
+  `   IMPORTANT: only include a person if you actually found their real name. Do NOT output placeholders like ` +
+  `"Not found", "Unknown", or empty names. If you truly cannot find any named person, return "contacts": [].\n` +
+  `2) A brief company dossier: funding stage/recency, approx headcount and direction, whether they hire in ` +
+  `India or Europe, time-zone overlap with IST, and 1-2 recent launches/news. Cite a source URL per claim.\n\n` +
+  `Reply with ONLY a JSON object (no prose, no markdown fence):\n` +
+  `{"contacts":[{"name":"Full Name","role":"Title","linkedinUrl":"https://...","source":"https://..."}],` +
+  `"dossier":{"funding":"","headcount":"","hiresInIndia":true,"hiresInEurope":true,"istOverlap":"","recent":[]},` +
+  `"summary":"2-3 sentence outreach-oriented summary"}`;
 
 function parseJson(text: string): ResearchResult | null {
-  const m = text.match(/\{[\s\S]*\}/);
+  // strip code fences if present, then grab the outermost JSON object
+  const cleaned = text.replace(/```json/gi, "").replace(/```/g, "");
+  const m = cleaned.match(/\{[\s\S]*\}/);
   if (!m) return null;
   try {
     const o = JSON.parse(m[0]) as ResearchResult;
-    return { contacts: o.contacts ?? [], dossier: o.dossier ?? {}, summary: o.summary ?? "" };
+    const contacts = (Array.isArray(o.contacts) ? o.contacts : []).filter(
+      (c) => c && c.name && !/not\s*found|unknown|^n\/?a$|placeholder|^-$/i.test(c.name.trim()),
+    );
+    return { contacts, dossier: o.dossier ?? {}, summary: o.summary ?? "" };
   } catch {
     return null;
   }
 }
 
 async function runAgent(company: string, title: string, location: string | null): Promise<ResearchResult | null> {
-  const client = anthropicClient();
-  const messages: Anthropic.MessageParam[] = [
-    {
-      role: "user",
-      content: `Company: ${company}\nRole: ${title}${location ? `\nLocation: ${location}` : ""}\n\nResearch this and return the JSON.`,
-    },
-  ];
-  for (let round = 0; round < MAX_ROUNDS; round++) {
-    const res = await client.messages.create({
-      model: MODELS.research,
-      max_tokens: 2048,
-      system: SYSTEM,
-      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 5 }],
-      messages,
-    });
-    if (res.stop_reason === "pause_turn") {
-      messages.push({ role: "assistant", content: res.content });
-      continue;
-    }
-    // collect any assistant text; if it parses to our JSON we're done
-    const text = res.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("\n");
-    const parsed = parseJson(text);
-    if (parsed) return parsed;
-    if (res.stop_reason !== "tool_use") break;
-    messages.push({ role: "assistant", content: res.content });
-    messages.push({ role: "user", content: "Now return ONLY the JSON object described." });
-  }
-  return null;
+  const text = await webSearch(PROMPT(company, title, location));
+  return parseJson(text);
 }
 
 /** Research one job and store the dossier + contacts. */
@@ -106,7 +88,7 @@ export async function researchJob(db: Db, jobId: string): Promise<ResearchResult
       dossier: result.dossier as object,
       contacts: result.contacts as object,
       summary: result.summary,
-      model: MODELS.research,
+      model: MODELS.researchOpenAI,
     })
     .onConflictDoUpdate({
       target: jobResearch.jobId,
@@ -114,7 +96,7 @@ export async function researchJob(db: Db, jobId: string): Promise<ResearchResult
         dossier: result.dossier as object,
         contacts: result.contacts as object,
         summary: result.summary,
-        model: MODELS.research,
+        model: MODELS.researchOpenAI,
         createdAt: new Date(),
       },
     });

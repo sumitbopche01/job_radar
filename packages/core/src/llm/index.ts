@@ -16,6 +16,8 @@ export const MODELS = {
   judgeTop: process.env.JR_MODEL_JUDGE_TOP ?? "claude-sonnet-5",
   // research agent uses web search — needs a model that supports web_search_20260209
   research: process.env.JR_MODEL_RESEARCH ?? "claude-sonnet-5",
+  // research via OpenAI Responses web_search (used because Anthropic credits may be out)
+  researchOpenAI: process.env.JR_MODEL_RESEARCH_OPENAI ?? "gpt-4o",
 } as const;
 
 export function hasOpenAI(): boolean {
@@ -68,6 +70,45 @@ export async function embed(texts: string[]): Promise<number[][]> {
     for (const d of res.data.sort((a, b) => a.index - b.index)) out.push(d.embedding);
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Web search (OpenAI Responses API) — for the contact/company research agent.
+// Anthropic has a web_search tool too, but this uses OpenAI so research works
+// even when the Anthropic balance is exhausted.
+// ---------------------------------------------------------------------------
+
+export function hasWebSearch(): boolean {
+  return Boolean(process.env.OPENAI_API_KEY);
+}
+
+interface OpenAiResponse {
+  output?: { content?: { type: string; text?: string }[] }[];
+  error?: { message?: string };
+}
+
+/** Run a web-search-grounded prompt and return the model's text output. */
+export async function webSearch(prompt: string, maxTokens = 1400): Promise<string> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not set (needed for research web search).");
+  }
+  const res = await fetchJson<OpenAiResponse>("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: {
+      model: MODELS.researchOpenAI,
+      tools: [{ type: "web_search_preview" }],
+      input: prompt,
+      max_output_tokens: maxTokens,
+    },
+    timeoutMs: 90_000,
+  });
+  if (res.error) throw new Error(`OpenAI responses error: ${res.error.message}`);
+  return (res.output ?? [])
+    .flatMap((o) => o.content ?? [])
+    .filter((c) => c.type === "output_text" && c.text)
+    .map((c) => c.text!)
+    .join("\n");
 }
 
 // ---------------------------------------------------------------------------

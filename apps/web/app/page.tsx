@@ -25,6 +25,8 @@ export default async function TriagePage({
     firstSeenAt: j.firstSeenAt.toISOString(),
     rubric: (j.rubric ?? null) as TriageItem["rubric"],
     contacts: outreachLinks(j.companyName, j.title),
+    researchContacts: (j.researchContacts ?? null) as TriageItem["researchContacts"],
+    researchSummary: j.researchSummary ?? null,
   }));
 
   return (

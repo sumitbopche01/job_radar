@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { appliedAction, rejectAction, shortlistAction } from "./actions";
+import { appliedAction, rejectAction, researchAction, shortlistAction } from "./actions";
+
+export interface ResearchContact {
+  name: string;
+  role?: string;
+  linkedinUrl?: string;
+  source?: string;
+}
 
 export interface Rubric {
   fit_score?: number;
@@ -31,6 +38,8 @@ export interface TriageItem {
   score: number | null;
   rubric: Rubric | null;
   contacts: { label: string; url: string }[];
+  researchContacts: ResearchContact[] | null;
+  researchSummary: string | null;
 }
 
 const REJECT_REASONS: Record<string, string> = {
@@ -316,7 +325,12 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
 
                 {current.rubric && <MatchCard rubric={current.rubric} score={current.score} />}
 
-                <ReachOut contacts={current.contacts} />
+                <ReachOut
+                  jobId={current.id}
+                  contacts={current.contacts}
+                  found={current.researchContacts}
+                  summary={current.researchSummary}
+                />
 
                 {/* description */}
                 <div className="rounded-xl border border-line bg-white p-5 shadow-sm sm:p-6">
@@ -376,13 +390,91 @@ function ScoreBadge({ score }: { score: number }) {
   );
 }
 
-function ReachOut({ contacts }: { contacts: { label: string; url: string }[] }) {
-  if (!contacts || contacts.length === 0) return null;
+function LinkedInGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="size-3.5" aria-hidden="true">
+      <path d="M4.98 3.5A2.5 2.5 0 1 0 5 8.5a2.5 2.5 0 0 0 0-5ZM3 9h4v12H3V9Zm6 0h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.5 4.78 5.75V21H17.6v-5.9c0-1.4-.03-3.2-2-3.2-2 0-2.3 1.53-2.3 3.1V21H9V9Z" />
+    </svg>
+  );
+}
+
+function ReachOut({
+  jobId,
+  contacts,
+  found,
+  summary,
+}: {
+  jobId: string;
+  contacts: { label: string; url: string }[];
+  found: ResearchContact[] | null;
+  summary: string | null;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const hasFound = Array.isArray(found) && found.length > 0;
+
+  const findContacts = () => {
+    setError(null);
+    startTransition(async () => {
+      const res = await researchAction(jobId);
+      if (!res.ok) setError(res.error ?? "No contacts found — try the LinkedIn searches below.");
+    });
+  };
+
   return (
     <div className="rounded-xl border border-line bg-white p-5 shadow-sm sm:p-6">
-      <h3 className="text-sm font-semibold text-neutral-900">Reach out — don&apos;t just apply</h3>
-      <p className="mb-3 mt-0.5 text-xs text-neutral-500">
-        Find the hiring manager or a team member on LinkedIn (opens in your account), then send a short note.
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-900">Reach out — don&apos;t just apply</h3>
+          <p className="mt-0.5 text-xs text-neutral-500">
+            Message a real person, not the void. Fetch named contacts, or search LinkedIn directly.
+          </p>
+        </div>
+        <button
+          onClick={findContacts}
+          disabled={pending}
+          className="shrink-0 rounded-full border border-brand bg-white px-3 py-1.5 text-[13px] font-semibold text-brand transition-colors hover:bg-brand-light disabled:opacity-50"
+        >
+          {pending ? "Finding…" : hasFound ? "Refresh contacts" : "Find contacts"}
+        </button>
+      </div>
+
+      {summary && <p className="mt-3 rounded-lg bg-neutral-50 px-3 py-2 text-[13px] text-neutral-700">{summary}</p>}
+
+      {hasFound && (
+        <ul className="mt-3 divide-y divide-line rounded-lg border border-line">
+          {found!.map((c, i) => (
+            <li key={i} className="flex items-center justify-between gap-3 px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-neutral-900">{c.name}</p>
+                {c.role && <p className="truncate text-xs text-neutral-500">{c.role}</p>}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {c.linkedinUrl && (
+                  <a
+                    href={c.linkedinUrl}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-dark"
+                  >
+                    <LinkedInGlyph /> Profile
+                  </a>
+                )}
+                {c.source && !c.linkedinUrl && (
+                  <a href={c.source} target="_blank" rel="noopener" className="text-xs text-brand hover:underline">
+                    source
+                  </a>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {error && <p className="mt-2 text-xs text-amber-600">{error}</p>}
+
+      <p className="mb-1.5 mt-4 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+        Search LinkedIn directly
       </p>
       <div className="flex flex-wrap gap-2">
         {contacts.map((c) => (
@@ -393,9 +485,7 @@ function ReachOut({ contacts }: { contacts: { label: string; url: string }[] }) 
             rel="noopener"
             className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand-light/50 px-3 py-1.5 text-[13px] font-medium text-brand-dark transition-colors hover:bg-brand-light"
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="size-3.5" aria-hidden="true">
-              <path d="M4.98 3.5A2.5 2.5 0 1 0 5 8.5a2.5 2.5 0 0 0 0-5ZM3 9h4v12H3V9Zm6 0h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.5 4.78 5.75V21H17.6v-5.9c0-1.4-.03-3.2-2-3.2-2 0-2.3 1.53-2.3 3.1V21H9V9Z" />
-            </svg>
+            <LinkedInGlyph />
             {c.label}
           </a>
         ))}

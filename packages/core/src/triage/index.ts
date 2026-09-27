@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
-import { applications, companies, feedback, jobs } from "../db/schema.js";
+import { applications, companies, feedback, jobResearch, jobs } from "../db/schema.js";
 import { TITLE_BLOCKLIST } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
@@ -28,6 +28,8 @@ export interface TriageJob {
   descriptionMd: string;
   score: number | null;
   rubric: unknown;
+  researchContacts: unknown;
+  researchSummary: string | null;
 }
 
 export interface TriageOptions {
@@ -78,9 +80,12 @@ export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<
       descriptionMd: jobs.descriptionMd,
       score: label ? scoreExpr : sql<number | null>`null`,
       rubric: label ? rubricExpr : sql<unknown>`null`,
+      researchContacts: jobResearch.contacts,
+      researchSummary: jobResearch.summary,
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .leftJoin(jobResearch, eq(jobResearch.jobId, jobs.id))
     .where(
       and(
         isNull(jobs.closedAt),
