@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { applications, companies, feedback, jobResearch, jobs } from "../db/schema.js";
-import { TITLE_BLOCKLIST } from "../filters/stage0.js";
+import { TITLE_BLOCKLIST, titleRegexExclusionSql } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
 import { regionClause, type Region } from "../filters/region.js";
@@ -99,6 +99,7 @@ export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<
 
 
         opts.region ? regionClause(opts.region, "jobs") : undefined,
+        titleRegexExclusionSql("jobs"),
         ...notBlockedTitle(),
       ),
     )
@@ -131,6 +132,7 @@ export async function getTriageCount(db: Db, opts: TriageOptions = {}): Promise<
 
 
         opts.region ? regionClause(opts.region, "jobs") : undefined,
+        titleRegexExclusionSql("jobs"),
         ...notBlockedTitle(),
       ),
     );

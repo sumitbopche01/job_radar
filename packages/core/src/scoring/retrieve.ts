@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
-import { TITLE_BLOCKLIST } from "../filters/stage0.js";
+import { TITLE_BLOCKLIST, titleRegexExclusionSql } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
 import type { ProfileRow } from "../profiles/index.js";
@@ -58,6 +58,7 @@ export async function retrieve(
     and (j.posted_at >= ${since} or j.first_seen_at >= ${since})
     and ${eligibilityClause("j")}
     and ${roleTargetClause("j")}
+    and ${titleRegexExclusionSql("j")}
     and ${sql.join(notBlocked, sql` and `)}
   `;
 

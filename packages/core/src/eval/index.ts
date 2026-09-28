@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { companies, jobScores, jobs } from "../db/schema.js";
-import { TITLE_BLOCKLIST } from "../filters/stage0.js";
+import { TITLE_BLOCKLIST, titleRegexExclusionSql } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
 import { getProfile } from "../profiles/index.js";
@@ -37,6 +37,7 @@ export async function scaffoldEvalSet(db: Db, n = 50, sinceDays = 30): Promise<E
         or(gte(jobs.postedAt, since), gte(jobs.firstSeenAt, since)),
         eligibilityClause("jobs"),
         roleTargetClause("jobs"),
+        titleRegexExclusionSql("jobs"),
         ...notBlocked,
       ),
     )

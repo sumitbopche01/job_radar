@@ -86,12 +86,30 @@ export const TITLE_BLOCKLIST = [
   "android",
 ];
 
-/** SQL: title passes the denylist, keyed to a table alias. */
+/**
+ * Word-boundary title exclusions that a substring blocklist can't express safely.
+ * `\yjava\y` matches "Java" as a whole word (e.g. "Backend Engineer (Java)",
+ * "Java Developer") but NOT "JavaScript" — so Java-primary roles are dropped while
+ * JavaScript/JS roles are kept.
+ */
+export const TITLE_BLOCK_REGEX = "\\y(java)\\y";
+
+/** SQL: title is not excluded by the word-boundary regex, keyed to a table alias. */
+export function titleRegexExclusionSql(alias = "jobs") {
+  return sql.raw(`lower(coalesce(${alias}.title, '')) !~ '${TITLE_BLOCK_REGEX}'`);
+}
+
+/** JS mirror of the regex exclusion (for tests / in-memory filtering). */
+export function isTitleRegexBlocked(title: string): boolean {
+  return /\bjava\b/i.test(title ?? "");
+}
+
+/** SQL: title passes the denylist (substring blocklist + word-boundary regex). */
 export function titleBlocklistClause(alias = "jobs") {
   const title = `lower(coalesce(${alias}.title, ''))`;
-  return sql.raw(
-    "not (" + TITLE_BLOCKLIST.map((t) => `${title} like '%${t.toLowerCase()}%'`).join(" or ") + ")",
-  );
+  const likeNot =
+    "not (" + TITLE_BLOCKLIST.map((t) => `${title} like '%${t.toLowerCase()}%'`).join(" or ") + ")";
+  return sql.raw(`(${likeNot} and ${title} !~ '${TITLE_BLOCK_REGEX}')`);
 }
 
 export interface Stage0Options {
@@ -152,6 +170,7 @@ export async function stage0Candidates(db: Db, opts: Stage0Options = {}): Promis
         or(gte(jobs.postedAt, since), gte(jobs.firstSeenAt, since)),
         eligibilityClause("jobs"),
         roleTargetClause("jobs"),
+        titleRegexExclusionSql("jobs"),
         ...notBlocked,
       ),
     )

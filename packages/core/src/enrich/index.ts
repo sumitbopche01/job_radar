@@ -3,7 +3,7 @@ import { and, eq, gte, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { companies, jobEnrichment, jobs } from "../db/schema.js";
 import { ensureSearchIndexes } from "../db/fts.js";
-import { TITLE_BLOCKLIST } from "../filters/stage0.js";
+import { TITLE_BLOCKLIST, titleRegexExclusionSql } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
 import { embed, extractJob, MODELS, type Extraction } from "../llm/index.js";
@@ -50,6 +50,7 @@ async function jobsNeedingEnrichment(db: Db, sinceDays: number, limit: number): 
         sql`not exists (select 1 from ${jobEnrichment} e where e.job_id = ${jobs.id})`,
         eligibilityClause("jobs"),
         roleTargetClause("jobs"),
+        titleRegexExclusionSql("jobs"),
         ...notBlocked,
       ),
     )
