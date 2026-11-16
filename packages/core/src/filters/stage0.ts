@@ -74,8 +74,15 @@ export const TITLE_BLOCKLIST = [
   "sdet",
   "qa engineer",
   "quality assurance",
+  "quality engineer",
   "validation engineer",
   "verification engineer",
+  "automation engineer", // QA/RPA/test automation (not infra automation, which is SRE/DevOps — also blocked)
+  "test automation",
+  "automation test",
+  "test orchestration",
+  "test architect",
+  "engineer in test", // "Software Development Engineer in Test" (spelled-out SDET)
   // field / support engineering (customer-facing, not IC software)
   "field engineer",
   "field application",
@@ -89,11 +96,12 @@ export const TITLE_BLOCKLIST = [
 
 /**
  * Word-boundary title exclusions that a substring blocklist can't express safely.
- * `\yjava\y` matches "Java" as a whole word (e.g. "Backend Engineer (Java)",
- * "Java Developer") but NOT "JavaScript" — so Java-primary roles are dropped while
- * JavaScript/JS roles are kept.
+ * - `\yjava\y` matches "Java" as a whole word ("Backend Engineer (Java)", "Java
+ *   Developer") but NOT "JavaScript" — Java-primary roles dropped, JS kept.
+ * - `\yqa\y` matches "QA" as a whole word ("QA Architect", "Senior QA Automation
+ *   Engineer") but NOT "quality"/"squad" — a substring "qa" would be unsafe.
  */
-export const TITLE_BLOCK_REGEX = "\\y(java)\\y";
+export const TITLE_BLOCK_REGEX = "\\y(java|qa)\\y";
 
 /** SQL: title is not excluded by the word-boundary regex, keyed to a table alias. */
 export function titleRegexExclusionSql(alias = "jobs") {
@@ -102,7 +110,7 @@ export function titleRegexExclusionSql(alias = "jobs") {
 
 /** JS mirror of the regex exclusion (for tests / in-memory filtering). */
 export function isTitleRegexBlocked(title: string): boolean {
-  return /\bjava\b/i.test(title ?? "");
+  return /\b(java|qa)\b/i.test(title ?? "");
 }
 
 /** SQL: title passes the denylist (substring blocklist + word-boundary regex). */

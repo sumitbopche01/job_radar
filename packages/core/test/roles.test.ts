@@ -24,16 +24,22 @@ describe("matchesRole", () => {
 
 import { isTitleRegexBlocked } from "../src/filters/stage0.js";
 
-describe("isTitleRegexBlocked (Java-primary, not JavaScript)", () => {
+describe("isTitleRegexBlocked (Java-primary / QA, word-boundary)", () => {
   it("blocks Java-primary titles", () => {
     expect(isTitleRegexBlocked("(Senior) Backend Software Engineer (Java)")).toBe(true);
     expect(isTitleRegexBlocked("Java Developer")).toBe(true);
     expect(isTitleRegexBlocked("Senior Java/Kotlin Engineer")).toBe(true);
   });
-  it("keeps JavaScript / non-Java titles", () => {
+  it("blocks QA roles the substring list misses", () => {
+    expect(isTitleRegexBlocked("QA Architect - Agentic Test Orchestration")).toBe(true);
+    expect(isTitleRegexBlocked("Senior QA Automation Engineer")).toBe(true);
+    expect(isTitleRegexBlocked("QA Lead")).toBe(true);
+  });
+  it("keeps JavaScript / non-Java / non-QA titles", () => {
     expect(isTitleRegexBlocked("JavaScript Engineer")).toBe(false);
     expect(isTitleRegexBlocked("Full-Stack Engineer (React/JavaScript)")).toBe(false);
     expect(isTitleRegexBlocked("Backend Engineer (Go)")).toBe(false);
     expect(isTitleRegexBlocked("AI Engineer")).toBe(false);
+    expect(isTitleRegexBlocked("Quality of Life Engineer")).toBe(false); // "quality" ≠ "qa"
   });
 });
