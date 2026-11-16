@@ -9,6 +9,7 @@ export * from "./filters/stage0.js";
 export * from "./filters/eligibility.js";
 export * from "./filters/roles.js";
 export * from "./filters/region.js";
+export * from "./filters/language.js";
 export * from "./outreach/index.js";
 export * from "./triage/index.js";
 export * from "./applications/index.js";

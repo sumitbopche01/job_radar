@@ -3,6 +3,7 @@ import type { Db } from "../db/client.js";
 import { companies, jobs } from "../db/schema.js";
 import { eligibilityClause } from "./eligibility.js";
 import { roleTargetClause } from "./roles.js";
+import { languageOkClause } from "./language.js";
 
 /** Titles that are never relevant — kills ~most of the noise for free (design doc §7). */
 export const TITLE_BLOCKLIST = [
@@ -171,6 +172,7 @@ export async function stage0Candidates(db: Db, opts: Stage0Options = {}): Promis
         eligibilityClause("jobs"),
         roleTargetClause("jobs"),
         titleRegexExclusionSql("jobs"),
+        languageOkClause("jobs"),
         ...notBlocked,
       ),
     )

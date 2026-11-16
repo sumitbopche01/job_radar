@@ -3,6 +3,7 @@ import type { Db } from "../db/client.js";
 import { TITLE_BLOCKLIST, titleRegexExclusionSql } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
+import { languageOkClause } from "../filters/language.js";
 import type { ProfileRow } from "../profiles/index.js";
 
 export interface RetrievedJob {
@@ -59,6 +60,7 @@ export async function retrieve(
     and ${eligibilityClause("j")}
     and ${roleTargetClause("j")}
     and ${titleRegexExclusionSql("j")}
+    and ${languageOkClause("j")}
     and ${sql.join(notBlocked, sql` and `)}
   `;
 

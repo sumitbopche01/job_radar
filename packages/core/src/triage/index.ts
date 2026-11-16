@@ -4,6 +4,7 @@ import { applications, companies, feedback, jobResearch, jobs } from "../db/sche
 import { TITLE_BLOCKLIST, titleRegexExclusionSql } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
+import { languageOkClause } from "../filters/language.js";
 import { regionClause, type Region } from "../filters/region.js";
 
 const notBlockedTitle = () =>
@@ -100,6 +101,7 @@ export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<
 
         opts.region ? regionClause(opts.region, "jobs") : undefined,
         titleRegexExclusionSql("jobs"),
+        languageOkClause("jobs"),
         ...notBlockedTitle(),
       ),
     )
@@ -133,6 +135,7 @@ export async function getTriageCount(db: Db, opts: TriageOptions = {}): Promise<
 
         opts.region ? regionClause(opts.region, "jobs") : undefined,
         titleRegexExclusionSql("jobs"),
+        languageOkClause("jobs"),
         ...notBlockedTitle(),
       ),
     );

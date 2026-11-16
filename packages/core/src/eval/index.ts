@@ -4,6 +4,7 @@ import { companies, jobScores, jobs } from "../db/schema.js";
 import { TITLE_BLOCKLIST, titleRegexExclusionSql } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
+import { languageOkClause } from "../filters/language.js";
 import { getProfile } from "../profiles/index.js";
 
 export type EvalLabel = "yes" | "no" | "borderline" | "";
@@ -38,6 +39,7 @@ export async function scaffoldEvalSet(db: Db, n = 50, sinceDays = 30): Promise<E
         eligibilityClause("jobs"),
         roleTargetClause("jobs"),
         titleRegexExclusionSql("jobs"),
+        languageOkClause("jobs"),
         ...notBlocked,
       ),
     )
