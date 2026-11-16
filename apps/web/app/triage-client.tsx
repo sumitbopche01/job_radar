@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { appliedAction, rejectAction, researchAction, shortlistAction } from "./actions";
+import { appliedAction, rejectAction, researchAction, shortlistAction, undoAction } from "./actions";
 
 export interface ResearchContact {
   name: string;
@@ -110,9 +110,11 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [lastAction, setLastAction] = useState<{ id: string; verb: string } | null>(null);
   const [, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -132,11 +134,29 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
     if (current) rowRefs.current.get(current.id)?.scrollIntoView({ block: "nearest" });
   }, [current]);
 
-  const act = useCallback((fn: () => Promise<void>, id: string) => {
+  const act = useCallback((fn: () => Promise<void>, id: string, verb: string) => {
     setRemoved((prev) => new Set(prev).add(id));
     setRejecting(false);
+    setLastAction({ id, verb });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setLastAction(null), 5000);
     startTransition(() => {
       void fn();
+    });
+  }, []);
+
+  const undo = useCallback(() => {
+    setLastAction((la) => {
+      if (!la) return null;
+      setRemoved((prev) => {
+        const next = new Set(prev);
+        next.delete(la.id);
+        return next;
+      });
+      startTransition(() => {
+        void undoAction(la.id);
+      });
+      return null;
     });
   }, []);
 
@@ -152,7 +172,7 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
       if (rejecting) {
         if (e.key === "Escape") return setRejecting(false);
         if (e.key in REJECT_REASONS && current) {
-          return act(() => rejectAction(current.id, REJECT_REASONS[e.key]), current.id);
+          return act(() => rejectAction(current.id, REJECT_REASONS[e.key]), current.id, "Rejected");
         }
         return;
       }
@@ -168,16 +188,21 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
           setSelected((i) => Math.max(i - 1, 0));
           break;
         case "s":
-          if (current) act(() => shortlistAction(current.id), current.id);
+          if (current) act(() => shortlistAction(current.id), current.id, "Shortlisted");
           break;
         case "a":
-          if (current) act(() => appliedAction(current.id), current.id);
+          if (current) act(() => appliedAction(current.id), current.id, "Marked applied");
           break;
         case "x":
           if (current) setRejecting(true);
           break;
         case "o":
+        case "Enter":
           if (current) window.open(current.applyUrl, "_blank", "noopener");
+          break;
+        case "u":
+          e.preventDefault();
+          undo();
           break;
         case "/":
           e.preventDefault();
@@ -186,7 +211,7 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
           break;
       }
     },
-    [act, current, rejecting, searching, visible.length],
+    [act, undo, current, rejecting, searching, visible.length],
   );
 
   useEffect(() => {
@@ -211,8 +236,8 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
               className="w-full rounded-full border border-line bg-neutral-50 py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/20"
             />
           </div>
-          <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-neutral-500">
-            {ranked ? "by fit" : "newest"}
+          <span className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-medium tabular-nums text-neutral-500">
+            <span className="font-semibold text-neutral-700">{visible.length}</span> left · {ranked ? "by fit" : "newest"}
           </span>
         </div>
 
@@ -315,10 +340,16 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
                       <span className="text-xs opacity-70">(o)</span>
                     </a>
                     <button
-                      onClick={() => act(() => shortlistAction(current.id), current.id)}
+                      onClick={() => act(() => shortlistAction(current.id), current.id, "Shortlisted")}
                       className="rounded-full border border-brand px-4 py-2 text-sm font-semibold text-brand transition-colors hover:bg-brand-light"
                     >
                       Shortlist (s)
+                    </button>
+                    <button
+                      onClick={() => setRejecting(true)}
+                      className="rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-600 transition-colors hover:bg-neutral-50"
+                    >
+                      Reject (x)
                     </button>
                   </div>
                 </div>
@@ -348,6 +379,24 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
             Select a job to see details.
           </div>
         )}
+      </div>
+
+      {lastAction && <Toast verb={lastAction.verb} onUndo={undo} />}
+    </div>
+  );
+}
+
+function Toast({ verb, onUndo }: { verb: string; onUndo: () => void }) {
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-16 z-50 flex justify-center">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-neutral-900 px-4 py-2 text-sm text-white shadow-lg">
+        <span className="font-medium">{verb}</span>
+        <button
+          onClick={onUndo}
+          className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold transition-colors hover:bg-white/25"
+        >
+          Undo (u)
+        </button>
       </div>
     </div>
   );
@@ -569,7 +618,10 @@ function Footer({ rejecting }: { rejecting: boolean }) {
             <Kbd>a</Kbd> applied
           </span>
           <span>
-            <Kbd>o</Kbd> open
+            <Kbd>u</Kbd> undo
+          </span>
+          <span>
+            <Kbd>o</Kbd>/<Kbd>↵</Kbd> open
           </span>
           <span>
             <Kbd>/</Kbd> search

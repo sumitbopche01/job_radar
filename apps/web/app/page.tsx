@@ -12,7 +12,7 @@ export default async function TriagePage({
 }) {
   const { profile, region } = await searchParams;
   const jobs = await getTriageQueue(db, {
-    limit: 60,
+    limit: 150,
     sinceDays: 14,
     profileLabel: profile,
     region: region as Region | undefined,

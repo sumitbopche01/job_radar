@@ -144,6 +144,13 @@ export async function getTriageCount(db: Db, opts: TriageOptions = {}): Promise<
 
 // ---- actions ----
 
+/** Undo a triage action: drop the feedback + application rows a shortlist/reject/
+ *  applied created, so the job returns to the queue. Used by the UI's undo (u). */
+export async function undoTriage(db: Db, jobId: string): Promise<void> {
+  await db.delete(applications).where(eq(applications.jobId, jobId));
+  await db.delete(feedback).where(eq(feedback.jobId, jobId));
+}
+
 /** Shortlist: record positive feedback and open an application in `shortlist`. */
 export async function shortlistJob(db: Db, jobId: string): Promise<void> {
   await db.insert(feedback).values({ jobId, label: "up", reason: "shortlist" });

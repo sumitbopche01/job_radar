@@ -8,6 +8,7 @@ import {
   setApplicationStatus,
   setNextAction,
   shortlistJob,
+  undoTriage,
   type ApplicationStatus,
 } from "@job-radar/core";
 import { db } from "@/lib/db";
@@ -25,6 +26,12 @@ export async function rejectAction(jobId: string, reason?: string) {
 
 export async function appliedAction(jobId: string) {
   await markApplied(db, jobId);
+  revalidatePath("/");
+  revalidatePath("/pipeline");
+}
+
+export async function undoAction(jobId: string) {
+  await undoTriage(db, jobId);
   revalidatePath("/");
   revalidatePath("/pipeline");
 }
