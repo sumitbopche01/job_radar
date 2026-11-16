@@ -208,6 +208,70 @@ export async function fetchWeWorkRemotely(): Promise<Posting[]> {
   return out;
 }
 
+// ---- Working Nomads (curated remote; JSON API with a real location field) ----
+interface WorkingNomadsJob {
+  url: string;
+  title: string;
+  description?: string;
+  company_name?: string;
+  location?: string;
+  pub_date?: string;
+}
+
+export async function fetchWorkingNomads(): Promise<Posting[]> {
+  const data = await fetchJson<WorkingNomadsJob[]>(
+    "https://www.workingnomads.com/api/exposed_jobs/",
+    { timeoutMs: 20_000, headers: { "user-agent": BROWSER_UA } },
+  );
+  const out: Posting[] = [];
+  for (const j of data ?? []) {
+    if (!j.url || !j.title) continue;
+    out.push({
+      company: j.company_name || "Unknown",
+      title: j.title,
+      location: j.location?.trim() || "Remote",
+      remoteType: "remote",
+      applyUrl: j.url,
+      externalId: `workingnomads-${j.url.split("/").filter(Boolean).pop() ?? j.url}`,
+      descriptionMd: htmlToMarkdown(j.description ?? ""),
+      postedAt: j.pub_date ? new Date(j.pub_date) : null,
+    });
+  }
+  return out;
+}
+
+// ---- NoDesk (curated remote; RSS, titles "Position at Company", no geo field) ----
+export async function fetchNoDesk(): Promise<Posting[]> {
+  const xml = await fetchText("https://nodesk.co/remote-jobs/index.xml", {
+    headers: { "user-agent": BROWSER_UA },
+    timeoutMs: 20_000,
+  });
+  const out: Posting[] = [];
+  const seen = new Set<string>();
+  for (const chunk of xml.split("<item>").slice(1)) {
+    const item = chunk.split("</item>")[0] ?? "";
+    const rawTitle = decodeEntities((xmlTag(item, "title") ?? "").trim());
+    const link = (xmlTag(item, "link") || xmlTag(item, "guid") || "").trim();
+    if (!rawTitle || !link || seen.has(link)) continue;
+    seen.add(link);
+    const at = rawTitle.lastIndexOf(" at ");
+    const title = at > 0 ? rawTitle.slice(0, at).trim() : rawTitle;
+    const company = at > 0 ? rawTitle.slice(at + 4).trim() : "Unknown";
+    const pub = xmlTag(item, "pubDate");
+    out.push({
+      company,
+      title,
+      location: null, // feed carries no structured location; curated remote
+      remoteType: "remote",
+      applyUrl: link,
+      externalId: `nodesk-${link.split("/").filter(Boolean).pop() ?? link}`,
+      descriptionMd: htmlToMarkdown(xmlTag(item, "description") ?? ""),
+      postedAt: pub ? new Date(pub) : null,
+    });
+  }
+  return out;
+}
+
 export interface RemoteBoardsResult {
   boards: Record<string, IngestResult & { fetched: number }>;
 }
@@ -222,6 +286,8 @@ export async function ingestRemoteBoards(db: Db): Promise<RemoteBoardsResult> {
     ["arbeitnow", fetchArbeitnow],
     ["himalayas", fetchHimalayas],
     ["wwr", fetchWeWorkRemotely],
+    ["workingnomads", fetchWorkingNomads],
+    ["nodesk", fetchNoDesk],
   ];
   for (const [name, fetcher] of sources) {
     try {

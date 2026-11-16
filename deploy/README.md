@@ -47,7 +47,8 @@ Tailscale and use its tailnet address — do not expose port 3005 publicly.
 
 `com.jobradar.refresh` runs `pnpm jr refresh` at login and every 6 hours, which
 crawls all ATS boards + the remote boards (Remotive / RemoteOK / Arbeitnow /
-Himalayas / We Work Remotely) + the latest HN thread, then dedupes.
+Himalayas / We Work Remotely / Working Nomads / NoDesk) + the latest HN thread,
+then dedupes.
 
 ```bash
 tail -f ~/Library/Logs/jobradar-refresh.out.log          # watch a refresh run

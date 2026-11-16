@@ -509,7 +509,7 @@ Usage:
   P4 ingestion (non-ATS sources):
   pnpm jr ingest hn               parse the latest HN "Who is hiring" thread
   pnpm jr ingest email <file>     parse a saved job-alert email (LinkedIn/Wellfound/…)
-  pnpm jr ingest remote           pull remote boards (Remotive/RemoteOK/Arbeitnow/Himalayas/WWR)
+  pnpm jr ingest remote           pull remote boards (Remotive/RemoteOK/Arbeitnow/Himalayas/WWR/WorkingNomads/NoDesk)
   pnpm jr digest [--dry-run]      build + send the daily digest
   pnpm jr digest --top 15 --since 3
 
