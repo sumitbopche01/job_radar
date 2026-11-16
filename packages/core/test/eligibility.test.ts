@@ -21,6 +21,15 @@ describe("isEligible", () => {
     expect(isEligible(null, "remote")).toBe(true);
   });
 
+  it("keeps global-remote phrasings that carry filler words (WWR/Himalayas)", () => {
+    expect(isEligible("Anywhere in the World", "remote")).toBe(true);
+    expect(isEligible("Worldwide", "remote")).toBe(true);
+    expect(isEligible("Remote, Any location", "remote")).toBe(true);
+    // but filler-stripping must NOT rescue a region-locked remote role
+    expect(isEligible("Anywhere in the US", "remote")).toBe(false);
+    expect(isEligible("Anywhere in North America", "remote")).toBe(false);
+  });
+
   it("keeps remote explicitly tied to India", () => {
     expect(isEligible("Remote - India", "remote")).toBe(true);
   });

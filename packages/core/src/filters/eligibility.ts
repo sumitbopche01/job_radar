@@ -119,19 +119,31 @@ export const GENERIC_REMOTE_WORDS = [
 ];
 const GENERIC_RE = new RegExp(`(${GENERIC_REMOTE_WORDS.join("|")})`, "g");
 
+/** Filler/connector words left behind after generic stripping (e.g. "anywhere in
+ *  the world" -> "in the world"). Dropped as whole words so a bare global-remote
+ *  location strips to empty and counts as eligible. */
+export const LOCATION_STOPWORDS = [
+  "the", "in", "of", "on", "any", "a", "an", "and", "or", "to", "for",
+  "from", "only", "location", "based", "within", "across", "world", "earth",
+];
+const STOP_RE = new RegExp(`\\b(${LOCATION_STOPWORDS.join("|")})\\b`, "g");
+
 export function stripGeneric(loc: string): string {
   return loc
     .replace(GENERIC_RE, " ")
     .replace(/[^a-z]+/g, " ")
+    .replace(STOP_RE, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
-/** SQL fragment: the location stripped of remote/generic words (empty = generic remote). */
+/** SQL fragment: the location stripped of remote/generic + filler words (empty = generic remote). */
 export function strippedLocSql(alias = "jobs"): string {
   const loc = `lower(coalesce(${alias}.location_raw, ''))`;
-  return `btrim(regexp_replace(regexp_replace(${loc}, '(${GENERIC_REMOTE_WORDS.join(
-    "|",
-  )})', ' ', 'g'), '[^a-z]+', ' ', 'g'))`;
+  const noGeneric = `regexp_replace(${loc}, '(${GENERIC_REMOTE_WORDS.join("|")})', ' ', 'g')`;
+  const letters = `regexp_replace(${noGeneric}, '[^a-z]+', ' ', 'g')`;
+  const noStop = `regexp_replace(${letters}, '\\y(${LOCATION_STOPWORDS.join("|")})\\y', ' ', 'g')`;
+  return `btrim(regexp_replace(${noStop}, '\\s+', ' ', 'g'))`;
 }
 
 /** JS predicate mirroring the SQL clause. */

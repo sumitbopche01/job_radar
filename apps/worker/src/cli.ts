@@ -122,6 +122,42 @@ async function main() {
         }
         break;
       }
+
+      case "refresh": {
+        // Full data refresh for the always-on service: all ATS boards + the free
+        // remote boards + the latest HN "who's hiring" thread, then dedupe.
+        const started = Date.now();
+        console.log(`[refresh] ${new Date().toISOString()}`);
+        const results = await runCrawl(db, { onResult: (r) => logResult(r) });
+        summarize(results, Date.now() - started);
+
+        console.log("  remote boards:");
+        try {
+          const rb = await ingestRemoteBoards(db);
+          for (const [name, b] of Object.entries(rb.boards)) {
+            const err = (b as { error?: string }).error;
+            console.log(
+              err
+                ? `    ✗ ${name}: ${err}`
+                : `    ✓ ${name}: ${b.fetched} fetched, ${b.inserted} new, ${b.updated} updated`,
+            );
+          }
+        } catch (err) {
+          console.log(`    ✗ remote boards failed: ${err instanceof Error ? err.message : err}`);
+        }
+
+        try {
+          const hn = await ingestHiringThread(db);
+          console.log(`  hn "${hn.thread}": ${hn.parsed} parsed, ${hn.inserted} new, ${hn.updated} updated`);
+        } catch (err) {
+          console.log(`  ✗ hn ingest failed: ${err instanceof Error ? err.message : err}`);
+        }
+
+        const dd = await dedupe(db);
+        console.log(`  dedupe: ${dd.duplicatesLinked} duplicates linked across ${dd.groups} groups`);
+        console.log(`[refresh] done in ${((Date.now() - started) / 1000).toFixed(0)}s`);
+        break;
+      }
       case "dedupe": {
         const res = await dedupe(db);
         console.log(`✓ dedupe: ${res.duplicatesLinked} duplicates linked across ${res.groups} groups`);
@@ -458,6 +494,7 @@ Usage:
   pnpm jr crawl                   crawl all active companies
   pnpm jr crawl --only ashby      crawl one ATS provider
   pnpm jr crawl --company stripe  crawl one company (by board token)
+  pnpm jr refresh                 full refresh: ATS + remote boards + HN + dedupe
   pnpm jr dedupe                  link cross-source duplicates
 
   P3 discovery:
@@ -472,7 +509,7 @@ Usage:
   P4 ingestion (non-ATS sources):
   pnpm jr ingest hn               parse the latest HN "Who is hiring" thread
   pnpm jr ingest email <file>     parse a saved job-alert email (LinkedIn/Wellfound/…)
-  pnpm jr ingest remote           pull free remote boards (Remotive/RemoteOK/Arbeitnow)
+  pnpm jr ingest remote           pull remote boards (Remotive/RemoteOK/Arbeitnow/Himalayas/WWR)
   pnpm jr digest [--dry-run]      build + send the daily digest
   pnpm jr digest --top 15 --since 3
 

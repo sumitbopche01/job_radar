@@ -1,10 +1,14 @@
 # Running Job Radar as a local service (macOS)
 
-Single-user, local deploy. Two macOS LaunchAgents keep the web UI up independent
-of any terminal/session, and keep the Mac awake while on AC power.
+Single-user, local deploy. Three macOS LaunchAgents keep the web UI up independent
+of any terminal/session, refresh the data on a schedule, and keep the Mac awake
+while on AC power.
 
 - `com.jobradar.web` — runs `pnpm start` (production `next start -p 3005`) in
   `apps/web`, `RunAtLoad` (starts on login) + `KeepAlive` (restarts on crash).
+- `com.jobradar.refresh` — runs `pnpm jr refresh` (all ATS boards + the free
+  remote boards + the latest HN "who's hiring" + dedupe) at login and **every 6
+  hours** (`StartInterval`). Periodic batch, not a daemon (no `KeepAlive`).
 - `com.jobradar.caffeinate` — `caffeinate -s` (prevents *system* sleep only while
   on AC; on battery the Mac sleeps normally).
 
@@ -17,6 +21,7 @@ when you sign in"** so the DB is up before the web agent needs it.
 ```bash
 cp deploy/launchd/*.plist ~/Library/LaunchAgents/
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jobradar.web.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jobradar.refresh.plist
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jobradar.caffeinate.plist
 ```
 
@@ -38,15 +43,21 @@ App: http://localhost:3005 (localhost-only; use `?profile=agent-llm-infra` for t
 ranked view). To reach it from your other devices privately, put the Mac on
 Tailscale and use its tailnet address — do not expose port 3005 publicly.
 
-## Not automated yet: crawling
+## Data refresh
 
-These agents keep the **UI** up; they do **not** fetch new jobs. Data refresh is
-still manual:
+`com.jobradar.refresh` runs `pnpm jr refresh` at login and every 6 hours, which
+crawls all ATS boards + the remote boards (Remotive / RemoteOK / Arbeitnow /
+Himalayas / We Work Remotely) + the latest HN thread, then dedupes.
 
 ```bash
-pnpm jr crawl && pnpm jr enrich && pnpm jr score agent-llm-infra && pnpm jr digest
+tail -f ~/Library/Logs/jobradar-refresh.out.log          # watch a refresh run
+launchctl kickstart -k gui/$(id -u)/com.jobradar.refresh  # force a refresh now
+pnpm jr refresh                                           # or run it in the foreground
 ```
 
-A staleness-based scheduler (design §8) that runs the crawl/enrich/score/digest
-loop automatically is the next step — until then, run `jr crawl` when you want
-fresh data (or add a periodic LaunchAgent / cron for it).
+The LLM steps are **not** in the scheduled refresh (they need API keys and credit):
+run them when you want ranked scoring / digests.
+
+```bash
+pnpm jr enrich && pnpm jr score agent-llm-infra && pnpm jr digest
+```

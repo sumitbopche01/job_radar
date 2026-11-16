@@ -64,6 +64,37 @@ export async function fetchJson<T = unknown>(url: string, opts: FetchOpts = {}):
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
+/** GET raw text (RSS/XML/HTML) with the same timeout/backoff policy as fetchJson. */
+export async function fetchText(url: string, opts: FetchOpts = {}): Promise<string> {
+  const { timeoutMs = 20_000, retries = 2, headers = {} } = opts;
+  let lastErr: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) await sleep(500 * 2 ** (attempt - 1));
+    try {
+      const res = await request(url, {
+        method: "GET",
+        headers: { "user-agent": UA, accept: "*/*", ...headers },
+        headersTimeout: timeoutMs,
+        bodyTimeout: timeoutMs,
+      });
+      if (res.statusCode >= 400) {
+        const text = await res.body.text();
+        const retryable = res.statusCode === 429 || res.statusCode >= 500;
+        const err = new HttpError(`GET ${url} -> ${res.statusCode}: ${text.slice(0, 200)}`, res.statusCode);
+        if (!retryable) throw err;
+        lastErr = err;
+        continue;
+      }
+      return await res.body.text();
+    } catch (err) {
+      if (err instanceof HttpError && err.status >= 400 && err.status < 500 && err.status !== 429) throw err;
+      lastErr = err;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
