@@ -1,6 +1,8 @@
 import { request } from "undici";
 
-const UA = "job-radar/0.1 (+personal job discovery; contact sumitbopche01@gmail.com)";
+// Generic client identifier — deliberately carries no personal contact details,
+// since this UA is sent to every ATS and job board on every request.
+const UA = "job-radar/0.1 (+https://github.com/job-radar; personal job discovery)";
 
 export class HttpError extends Error {
   constructor(
