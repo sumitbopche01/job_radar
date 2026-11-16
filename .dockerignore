@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.next
+**/.next
+.git
+.env
+.env.*
+*.log
+dist
+**/dist
+coverage
+eval.json
+applications.csv
+.DS_Store

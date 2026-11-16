@@ -17,5 +17,54 @@ services:
       timeout: 5s
       retries: 10
 
+  # One-shot: apply DB migrations before web/refresh start. Idempotent.
+  migrate:
+    build: .
+    image: job_radar_app
+    container_name: job_radar_migrate
+    command: ["pnpm", "jr", "migrate"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://jobradar:jobradar@db:5432/jobradar
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Triage UI on http://localhost:3005
+  web:
+    image: job_radar_app
+    container_name: job_radar_web
+    command: ["pnpm", "--filter", "@job-radar/web", "exec", "next", "start", "-p", "3005", "-H", "0.0.0.0"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://jobradar:jobradar@db:5432/jobradar
+      NODE_ENV: production
+    ports:
+      - "3005:3005"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Data refresh every 8 hours (3x/day): ATS + remote boards + HN + dedupe.
+  # Runs once immediately on start, so a reboot triggers a fresh pull.
+  refresh:
+    image: job_radar_app
+    container_name: job_radar_refresh
+    command: ["sh", "-c", "while true; do echo \"[refresh] starting $(date -u)\"; pnpm jr refresh || echo '[refresh] run failed'; echo \"[refresh] sleeping 8h\"; sleep 28800; done"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://jobradar:jobradar@db:5432/jobradar
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
 volumes:
   job_radar_pgdata:
