@@ -1,25 +1,12 @@
 [
   {
     "label": "agent-llm-infra",
-    "resumeMd": "Senior engineer building LLM/agent infrastructure: agent orchestration loops, tool-use and function calling, RAG and retrieval pipelines, evals and precision metrics, vector search (pgvector), structured outputs, prompt caching and batch inference, model routing. Ships TypeScript/Python services around LLM APIs (Anthropic, OpenAI). Comfortable owning the AI layer of a product end to end. Built HariNext.",
+    "resumeMd": "Sumit Bopche — Senior AI / Agentic Systems engineer, 8+ years, based in India (relocating to Bengaluru; open to relocation). Last 3 years designing and owning agentic AI platforms end to end. At Decentral (Toronto, remote) designed and built a private AI assistant platform for 500+ AI home servers (~2,500-3,000 users) plus 1,000+ hosted users: an MCP tool layer (official SDK, dynamic tool discovery), a request/intent router with progressive context loading and human-in-the-loop review, multi-agent orchestration (orchestrator-worker loops, multi-agent debate with moderator/judge), agent memory (token-budgeted context, long-term vector + episodic memory, per-user preference profiles), hybrid retrieval (pgvector + Postgres full-text fused with reciprocal rank fusion, multi-signal reranking), and evals (golden sets, LLM-as-judge, per-model cost/token telemetry, provenance tracking). Multi-provider LLM routing on AWS Bedrock; served Llama 405B, FLUX, Whisper, XTTS-v2 on in-house 8x H100 GPUs (vLLM, TGI, CUDA 12) behind Python/FastAPI inference APIs with NGINX load balancing and end-to-end streaming. Built a LangGraph root-cause-analysis agent for production failures and an ingestion pipeline (PDF/DOCX/images/audio/video) into pgvector + a Neo4j knowledge graph. Founder at HariNext Solutions building AI/fintech products. Open source: Beyond Vector Search (agentic doc search, eval harness), RediGate (OpenAI-compatible LLM gateway). Python, TypeScript, Go. LangGraph, LangChain, CrewAI, AutoGen.",
     "mustHave": {
       "seniority_min": "senior",
       "remote_ok": true,
       "timezone_overlap": ["IST", "US-overlap", "EU-overlap"],
-      "stack_any": ["llm", "agent", "rag", "inference", "ml", "ai", "pytorch", "langchain", "pgvector", "python"]
-    },
-    "exclude": {
-      "titles": ["manager", "sales", "support"],
-      "onsite_only": true
-    }
-  },
-  {
-    "label": "fullstack-ai",
-    "resumeMd": "Full-stack engineer who ships AI-powered product features: Next.js/React front ends, TypeScript/Node back ends, Postgres, integrating LLM features (chat, extraction, search) into real products. Comfortable across the stack from UI to data model to the model call. Product-minded, fast shipper. Built HariNext.",
-    "mustHave": {
-      "seniority_min": "mid",
-      "remote_ok": true,
-      "stack_any": ["typescript", "react", "next.js", "node", "postgres"]
+      "stack_any": ["llm", "agent", "agentic", "mcp", "rag", "retrieval", "inference", "vllm", "pytorch", "langchain", "langgraph", "pgvector", "embeddings", "python", "ml", "ai"]
     },
     "exclude": {
       "titles": ["manager", "sales", "support"],
@@ -28,11 +15,25 @@
   },
   {
     "label": "backend-platform",
-    "resumeMd": "Backend / platform engineer: distributed services, APIs (gRPC/REST), data pipelines, Postgres, queues, reliability and scale. Strong in TypeScript/Go/Python. Owns services end to end, cares about correctness, observability, and cost. Built HariNext.",
+    "resumeMd": "Sumit Bopche — Senior Backend / Distributed Systems engineer, 8+ years, based in India (relocating to Bengaluru; open to relocation). Builds distributed, high-traffic systems in Go, Python and TypeScript on AWS. Migrated the Jio Music backend from PHP to Node.js/PostgreSQL serving 100M+ users (added Google Home for 10M+ devices). At Freightify rewrote legacy PHP/Laravel services in Go cutting API response time 40% at 100K+ requests/day; built an API-as-a-Service layer (API-key management, rate limiting, multi-tenancy, load balancing) with gRPC between services and Terraform infra; designed CQRS pipelines on AWS SQS; moved long-running jobs off the Node.js event loop into Go background services; built services under TDD cutting production defects 25%. At Decentral (Toronto, remote) built Go services for blockchain indexing and chain-data APIs (managing UTXO data, running blockchain nodes) and ran the Python/FastAPI backend of a production AI platform, authoring design docs, leading architecture reviews, owning CI/CD (GitHub Actions, cut release time 50%) and observability (Grafana, health checks, Slack alerting); fixed cross-session data leaks and out-of-order async races; bounded long-running jobs with hard caps on cycles, wall-clock and spend. Strong in PostgreSQL (indexing, query planning, ACID), Redis, Elasticsearch, DynamoDB, MongoDB, Neo4j, queues; AWS (EC2/ECS/EKS/Lambda/S3/RDS/SQS/VPC/API Gateway), Kubernetes, Docker, Terraform, NGINX. Microservices, event-driven architecture, SOLID/clean architecture, idempotency, reliability and cost. Founder at HariNext Solutions.",
     "mustHave": {
       "seniority_min": "senior",
       "remote_ok": true,
-      "stack_any": ["go", "typescript", "python", "postgres", "grpc"]
+      "timezone_overlap": ["IST", "US-overlap", "EU-overlap"],
+      "stack_any": ["go", "golang", "python", "typescript", "node", "postgres", "postgresql", "grpc", "microservices", "distributed", "backend", "platform", "infrastructure", "aws", "kubernetes", "terraform"]
+    },
+    "exclude": {
+      "titles": ["manager", "sales", "support"],
+      "onsite_only": true
+    }
+  },
+  {
+    "label": "fullstack-ai",
+    "resumeMd": "Sumit Bopche — Full-stack engineer who ships AI-powered products end to end, 8+ years, based in India (relocating to Bengaluru; open to relocation). Founder/sole engineer at HariNext Solutions across AI, fintech and consumer products. Built Market Pulse, a multi-stage automated content pipeline (fetch, verify, narrate, quality-gate, render, publish) on TypeScript, Redis + Bull queues and Supabase, producing 58 reels and 100 newsletter editions with stage-level monitoring, retries, provenance tracking and fail-closed QC gates. Built AlgoTrading Intelligence, an NSE index-options platform (FastAPI, Supabase, Kite Connect) trading live capital with ~50 evaluators across 21 strategy families, idempotent paper/live order routing and risk controls (position sizing, loss limits, kill switch). Built FitFighter, a camera-based fitness game (Flutter, Flame, on-device ML Kit pose detection). Earlier owned the AI layer of a production assistant platform (MCP tools, hybrid retrieval, agent memory) and backend work at scale (Jio Music 100M+ users, Freightify 40% latency cut). Comfortable across the stack: React/Next.js front ends, TypeScript/Node and Python/FastAPI back ends, PostgreSQL/Supabase data, and integrating LLM features (chat, extraction, search, RAG) into real products. Product-minded, fast shipper. Go, Python, TypeScript, JavaScript, SQL.",
+    "mustHave": {
+      "seniority_min": "mid",
+      "remote_ok": true,
+      "stack_any": ["typescript", "react", "next.js", "node", "python", "fastapi", "postgres", "supabase", "llm", "ai", "full-stack", "fullstack"]
     },
     "exclude": {
       "titles": ["manager", "sales", "support"],
