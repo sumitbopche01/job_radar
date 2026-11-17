@@ -92,6 +92,10 @@ export const TITLE_BLOCKLIST = [
   "reliability engineer",
   "devops",
   "android",
+  // stacks I don't write
+  "c++", // also catches "C/C++"
+  ".net",
+  "dotnet",
 ];
 
 /**
@@ -100,8 +104,10 @@ export const TITLE_BLOCKLIST = [
  *   Developer") but NOT "JavaScript" — Java-primary roles dropped, JS kept.
  * - `\yqa\y` matches "QA" as a whole word ("QA Architect", "Senior QA Automation
  *   Engineer") but NOT "quality"/"squad" — a substring "qa" would be unsafe.
+ * - `\yios\y` matches "iOS" as a whole word ("iOS Engineer") but NOT "studios"/
+ *   "scenarios"/"portfolios" — a substring "ios" would be unsafe.
  */
-export const TITLE_BLOCK_REGEX = "\\y(java|qa)\\y";
+export const TITLE_BLOCK_REGEX = "\\y(java|qa|ios)\\y";
 
 /** SQL: title is not excluded by the word-boundary regex, keyed to a table alias. */
 export function titleRegexExclusionSql(alias = "jobs") {
@@ -110,7 +116,13 @@ export function titleRegexExclusionSql(alias = "jobs") {
 
 /** JS mirror of the regex exclusion (for tests / in-memory filtering). */
 export function isTitleRegexBlocked(title: string): boolean {
-  return /\b(java|qa)\b/i.test(title ?? "");
+  return /\b(java|qa|ios)\b/i.test(title ?? "");
+}
+
+/** JS mirror of the full denylist — substring blocklist OR word-boundary regex. */
+export function isTitleBlocked(title: string): boolean {
+  const t = (title ?? "").toLowerCase();
+  return TITLE_BLOCKLIST.some((term) => t.includes(term.toLowerCase())) || isTitleRegexBlocked(title);
 }
 
 /** SQL: title passes the denylist (substring blocklist + word-boundary regex). */

@@ -24,7 +24,7 @@ describe("matchesRole", () => {
 
 import { isTitleRegexBlocked } from "../src/filters/stage0.js";
 
-describe("isTitleRegexBlocked (Java-primary / QA, word-boundary)", () => {
+describe("isTitleRegexBlocked (Java-primary / QA / iOS, word-boundary)", () => {
   it("blocks Java-primary titles", () => {
     expect(isTitleRegexBlocked("(Senior) Backend Software Engineer (Java)")).toBe(true);
     expect(isTitleRegexBlocked("Java Developer")).toBe(true);
@@ -35,11 +35,28 @@ describe("isTitleRegexBlocked (Java-primary / QA, word-boundary)", () => {
     expect(isTitleRegexBlocked("Senior QA Automation Engineer")).toBe(true);
     expect(isTitleRegexBlocked("QA Lead")).toBe(true);
   });
-  it("keeps JavaScript / non-Java / non-QA titles", () => {
+  it("blocks iOS roles", () => {
+    expect(isTitleRegexBlocked("iOS Engineer - Design System")).toBe(true);
+    expect(isTitleRegexBlocked("Senior iOS Developer")).toBe(true);
+  });
+  it("keeps JavaScript / non-Java / non-QA / non-iOS titles", () => {
     expect(isTitleRegexBlocked("JavaScript Engineer")).toBe(false);
     expect(isTitleRegexBlocked("Full-Stack Engineer (React/JavaScript)")).toBe(false);
     expect(isTitleRegexBlocked("Backend Engineer (Go)")).toBe(false);
     expect(isTitleRegexBlocked("AI Engineer")).toBe(false);
     expect(isTitleRegexBlocked("Quality of Life Engineer")).toBe(false); // "quality" ≠ "qa"
+    expect(isTitleRegexBlocked("Engineer, Studios Platform")).toBe(false); // "studios" ≠ "ios"
+    expect(isTitleRegexBlocked("Scenarios & Simulation Engineer")).toBe(false); // "scenarios" ≠ "ios"
+  });
+});
+
+import { isTitleBlocked } from "../src/filters/stage0.js";
+
+describe("TITLE_BLOCKLIST substring stacks", () => {
+  it("blocks C/C++ and .NET roles", () => {
+    expect(isTitleBlocked("Senior C/C++ Software Engineer")).toBe(true);
+    expect(isTitleBlocked("C++ Engineer, Trading")).toBe(true);
+    expect(isTitleBlocked("Senior .NET Full-stack Developer")).toBe(true);
+    expect(isTitleBlocked("Dotnet Backend Engineer")).toBe(true);
   });
 });
