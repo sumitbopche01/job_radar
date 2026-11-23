@@ -152,8 +152,12 @@ interface HimalayasJob {
   pubDate?: number; // unix seconds
 }
 
-/** Search terms for the India-eligible sweep (each paged newest-first). */
+/** Search terms for the India-eligible sweep (each paged newest-first). The first
+ *  three always run; the rest cover target titles those miss ("Solutions
+ *  Architect", "Member of Technical Staff", "Applied Scientist", "LLM …") and only
+ *  run with HIMALAYAS_API_KEY — keyless pacing would make the sweep too slow. */
 const HIMALAYAS_INDIA_QUERIES = ["engineer", "developer", "machine learning"];
+const HIMALAYAS_INDIA_QUERIES_KEYED = ["architect", "technical staff", "scientist", "llm", "ai"];
 
 function himalayasPosting(j: HimalayasJob, id: string): Posting {
   // locationRestrictions is the ALLOWED-countries set — exactly what the geo
@@ -220,8 +224,10 @@ export async function fetchHimalayas(): Promise<Posting[]> {
   //    newest-first; stop once a page is older than the fresh window.
   //    Best-effort: a rate limit (or any error) ends the sweep but KEEPS what was
   //    already collected — it must never throw away the firehose results.
-  const pace = process.env.HIMALAYAS_API_KEY ? 300 : 1200;
-  sweep: for (const q of HIMALAYAS_INDIA_QUERIES) {
+  const keyed = Boolean(process.env.HIMALAYAS_API_KEY);
+  const pace = keyed ? 300 : 1200;
+  const queries = keyed ? [...HIMALAYAS_INDIA_QUERIES, ...HIMALAYAS_INDIA_QUERIES_KEYED] : HIMALAYAS_INDIA_QUERIES;
+  sweep: for (const q of queries) {
     for (let page = 1; page <= 30; page++) {
       let jobs: HimalayasJob[];
       try {
