@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { hasContractSignal, hasUsStrict, isUsPinned, usContractEligibleSql } from "./usRemote.js";
 
 /**
  * Geo-eligibility, modeled as data (design doc §14.3). Tuned to a candidate based
@@ -15,7 +16,10 @@ import { sql } from "drizzle-orm";
  * Rule (allowlist): a job is eligible if
  *   (a) its location names an eligible geo (any REGION_PATTERNS below), OR
  *   (b) it's remote AND its location is *generic* (strips to nothing once the
- *       remote/global boilerplate is removed).
+ *       remote/global boilerplate is removed), OR
+ *   (c) it's US-pinned remote whose description signals contractors / global
+ *       hiring with no strict US-only requirement (usRemote.ts) — the candidate
+ *       can engage as a B2B contractor through his firm.
  */
 
 /** Eligible geos grouped by region — also powers the region filter (region.ts). */
@@ -146,11 +150,28 @@ export function strippedLocSql(alias = "jobs"): string {
   return `btrim(regexp_replace(${noStop}, '\\s+', ' ', 'g'))`;
 }
 
-/** JS predicate mirroring the SQL clause. */
-export function isEligible(location: string | null | undefined, remoteType: string): boolean {
+/** JS predicate mirroring the SQL clause. Pass `description` to evaluate the
+ *  US-contract door (without it, US-pinned roles are treated as ineligible). */
+export function isEligible(
+  location: string | null | undefined,
+  remoteType: string,
+  description?: string | null,
+  title?: string | null,
+): boolean {
   const loc = (location ?? "").toLowerCase();
   if (ELIGIBLE_LOCATION_PATTERNS.some((p) => loc.includes(p))) return true;
   if (remoteType === "remote" && stripGeneric(loc) === "") return true;
+  // (c) US-remote that signals contractors / global hiring and has no strict
+  //     US-only requirement — engageable via a B2B contract (see usRemote.ts)
+  if (
+    remoteType === "remote" &&
+    description != null &&
+    isUsPinned(loc) &&
+    !hasUsStrict(description.toLowerCase()) &&
+    hasContractSignal(description.toLowerCase(), title)
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -160,6 +181,6 @@ export function eligibilityClause(alias = "jobs") {
   const eligibleLike =
     "(" + ELIGIBLE_LOCATION_PATTERNS.map((p) => `${loc} like '%${p}%'`).join(" or ") + ")";
   return sql.raw(
-    `(${eligibleLike} or (${alias}.remote_type = 'remote' and ${strippedLocSql(alias)} = ''))`,
+    `(${eligibleLike} or (${alias}.remote_type = 'remote' and ${strippedLocSql(alias)} = '') or ${usContractEligibleSql(alias)})`,
   );
 }

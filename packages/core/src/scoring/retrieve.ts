@@ -4,6 +4,7 @@ import { TITLE_BLOCKLIST, titleRegexExclusionSql } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
 import { languageOkClause } from "../filters/language.js";
+import { gigExclusionClause } from "../filters/gig.js";
 import type { ProfileRow } from "../profiles/index.js";
 
 export interface RetrievedJob {
@@ -61,6 +62,7 @@ export async function retrieve(
     and ${roleTargetClause("j")}
     and ${titleRegexExclusionSql("j")}
     and ${languageOkClause("j")}
+    and ${gigExclusionClause("j")}
     and ${sql.join(notBlocked, sql` and `)}
   `;
 

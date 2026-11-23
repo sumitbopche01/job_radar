@@ -5,6 +5,7 @@ import { TITLE_BLOCKLIST, titleRegexExclusionSql } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
 import { languageOkClause } from "../filters/language.js";
+import { gigExclusionClause } from "../filters/gig.js";
 import { getProfile } from "../profiles/index.js";
 
 export type EvalLabel = "yes" | "no" | "borderline" | "";
@@ -40,6 +41,7 @@ export async function scaffoldEvalSet(db: Db, n = 50, sinceDays = 30): Promise<E
         roleTargetClause("jobs"),
         titleRegexExclusionSql("jobs"),
         languageOkClause("jobs"),
+        gigExclusionClause("jobs"),
         ...notBlocked,
       ),
     )

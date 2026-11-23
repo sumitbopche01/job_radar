@@ -10,6 +10,8 @@ export * from "./filters/eligibility.js";
 export * from "./filters/roles.js";
 export * from "./filters/region.js";
 export * from "./filters/language.js";
+export * from "./filters/usRemote.js";
+export * from "./filters/gig.js";
 export * from "./outreach/index.js";
 export * from "./triage/index.js";
 export * from "./applications/index.js";

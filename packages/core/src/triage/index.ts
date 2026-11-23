@@ -5,7 +5,12 @@ import { TITLE_BLOCKLIST, titleRegexExclusionSql } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
 import { languageOkClause } from "../filters/language.js";
-import { regionClause, type Region } from "../filters/region.js";
+import { gigExclusionClause } from "../filters/gig.js";
+import { isUsRegion, regionClause, usTierSql, type Region } from "../filters/region.js";
+
+/** The geo gate, except in the opt-in "USA incl. US-only" view, whose whole point
+ *  is to show the strict US-only roles the gate deliberately drops. */
+const geoGate = (region?: Region) => (region === "usa_all" ? undefined : eligibilityClause("jobs"));
 
 const notBlockedTitle = () =>
   TITLE_BLOCKLIST.map(
@@ -94,21 +99,21 @@ export async function getTriageQueue(db: Db, opts: TriageOptions = {}): Promise<
         or(gte(jobs.postedAt, since), gte(jobs.firstSeenAt, since)),
         sql`not exists (select 1 from ${feedback} f where f.job_id = ${jobs.id})`,
         sql`not exists (select 1 from ${applications} a where a.job_id = ${jobs.id})`,
-        eligibilityClause("jobs"),
-
+        geoGate(opts.region),
         roleTargetClause("jobs"),
-
-
         opts.region ? regionClause(opts.region, "jobs") : undefined,
         titleRegexExclusionSql("jobs"),
         languageOkClause("jobs"),
+        gigExclusionClause("jobs"),
         ...notBlockedTitle(),
       ),
     )
     .orderBy(
-      label
-        ? sql`${scoreExpr} desc nulls last`
-        : desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`),
+      ...(label
+        ? [sql`${scoreExpr} desc nulls last`]
+        : isUsRegion(opts.region)
+          ? [usTierSql("jobs"), desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`)]
+          : [desc(sql`coalesce(${jobs.postedAt}, ${jobs.firstSeenAt})`)]),
     )
     .limit(limit);
   return rows as TriageJob[];
@@ -128,14 +133,12 @@ export async function getTriageCount(db: Db, opts: TriageOptions = {}): Promise<
         or(gte(jobs.postedAt, since), gte(jobs.firstSeenAt, since)),
         sql`not exists (select 1 from ${feedback} f where f.job_id = ${jobs.id})`,
         sql`not exists (select 1 from ${applications} a where a.job_id = ${jobs.id})`,
-        eligibilityClause("jobs"),
-
+        geoGate(opts.region),
         roleTargetClause("jobs"),
-
-
         opts.region ? regionClause(opts.region, "jobs") : undefined,
         titleRegexExclusionSql("jobs"),
         languageOkClause("jobs"),
+        gigExclusionClause("jobs"),
         ...notBlockedTitle(),
       ),
     );

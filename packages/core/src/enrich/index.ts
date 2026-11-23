@@ -7,6 +7,7 @@ import { TITLE_BLOCKLIST, titleRegexExclusionSql } from "../filters/stage0.js";
 import { eligibilityClause } from "../filters/eligibility.js";
 import { roleTargetClause } from "../filters/roles.js";
 import { languageOkClause } from "../filters/language.js";
+import { gigExclusionClause } from "../filters/gig.js";
 import { embed, extractJob, MODELS, type Extraction } from "../llm/index.js";
 
 export interface EnrichOptions {
@@ -53,6 +54,7 @@ async function jobsNeedingEnrichment(db: Db, sinceDays: number, limit: number): 
         roleTargetClause("jobs"),
         titleRegexExclusionSql("jobs"),
         languageOkClause("jobs"),
+        gigExclusionClause("jobs"),
         ...notBlocked,
       ),
     )

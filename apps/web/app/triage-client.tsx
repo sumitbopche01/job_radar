@@ -40,7 +40,18 @@ export interface TriageItem {
   contacts: { label: string; url: string }[];
   researchContacts: ResearchContact[] | null;
   researchSummary: string | null;
+  usAccess: UsAccess | null;
 }
+
+type UsAccess = "india_ok" | "contract" | "us_hours" | "us_only";
+
+/** Badge copy + tone per US-access tier (see packages/core/src/filters/usRemote.ts). */
+const US_BADGE: Record<UsAccess, { label: string; tone: "green" | "amber" | "blue" | "rose"; title: string }> = {
+  india_ok: { label: "US · India OK", tone: "green", title: "US role that also lists India / APAC as allowed" },
+  contract: { label: "US · Contract / Intl OK", tone: "amber", title: "US-pinned, but it's a contract role or explicitly open to international candidates — engage via HariNext (B2B)" },
+  us_hours: { label: "US hours", tone: "blue", title: "Hires anywhere but expects US-timezone overlap" },
+  us_only: { label: "US work auth", tone: "rose", title: "Requires US work authorization / residency — unlikely from India" },
+};
 
 const REJECT_REASONS: Record<string, string> = {
   "1": "seniority",
@@ -122,7 +133,15 @@ function avatarClass(name: string): string {
 }
 
 // ---------- component ----------
-export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: boolean }) {
+export function TriageClient({
+  items,
+  ranked,
+  rankLabel = "by fit",
+}: {
+  items: TriageItem[];
+  ranked?: boolean;
+  rankLabel?: string;
+}) {
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState(0);
   const [query, setQuery] = useState("");
@@ -259,7 +278,7 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
             />
           </div>
           <span className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-medium tabular-nums text-neutral-500">
-            <span className="font-semibold text-neutral-700">{visible.length}</span> left · {ranked ? "by fit" : "newest"}
+            <span className="font-semibold text-neutral-700">{visible.length}</span> left · {ranked ? rankLabel : "newest"}
           </span>
         </div>
 
@@ -315,6 +334,7 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
                       <Tag tone={j.remoteType === "remote" ? "green" : "plain"}>
                         {j.remoteType === "remote" ? "Remote" : j.remoteType}
                       </Tag>
+                      {j.usAccess && <UsBadge access={j.usAccess} />}
                       <Tag tone="plain">{j.source}</Tag>
                       <span className="text-[11px] text-neutral-400">{relTime(j.postedAt ?? j.firstSeenAt, now)}</span>
                     </div>
@@ -343,6 +363,7 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
                       <p className="mt-1 text-[15px] font-medium text-neutral-700">{current.companyName}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         <Tag tone="plain">📍 {locLabel(current)}</Tag>
+                        {current.usAccess && <UsBadge access={current.usAccess} />}
                         {salaryLabel(current) && <Tag tone="green">{salaryLabel(current)}</Tag>}
                         {current.employmentType !== "unknown" && (
                           <Tag tone="plain">{current.employmentType.replace("_", " ")}</Tag>
@@ -505,6 +526,21 @@ function Tag({ children, tone }: { children: React.ReactNode; tone: "plain" | "g
   return (
     <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ring-1 ${cls}`}>
       {children}
+    </span>
+  );
+}
+
+function UsBadge({ access }: { access: UsAccess }) {
+  const b = US_BADGE[access];
+  const cls = {
+    green: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+    amber: "bg-amber-50 text-amber-800 ring-amber-600/20",
+    blue: "bg-sky-50 text-sky-700 ring-sky-600/20",
+    rose: "bg-rose-50 text-rose-700 ring-rose-600/20",
+  }[b.tone];
+  return (
+    <span title={b.title} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${cls}`}>
+      {b.label}
     </span>
   );
 }

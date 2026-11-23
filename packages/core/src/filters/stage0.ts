@@ -4,6 +4,7 @@ import { companies, jobs } from "../db/schema.js";
 import { eligibilityClause } from "./eligibility.js";
 import { roleTargetClause } from "./roles.js";
 import { languageOkClause } from "./language.js";
+import { gigExclusionClause } from "./gig.js";
 
 /** Titles that are never relevant — kills ~most of the noise for free (design doc §7). */
 export const TITLE_BLOCKLIST = [
@@ -120,6 +121,15 @@ export const TITLE_BLOCKLIST = [
   "wordpress",
   // security-ops spelling the SRE/DevOps block misses
   "devsecops",
+  // non-software "engineer"/"engineering" titles surfaced by the US-remote audit
+  "sourcer", // "Technical Sourcer | Engineering"
+  "business partner", // "People Business Partner, Engineering"
+  "fire protection",
+  "geotechnical",
+  "civil engineer",
+  "structural engineer",
+  "mechanical engineer",
+  "proposal engineer",
   // field / support engineering (customer-facing, not IC software)
   "field engineer",
   "field application",
@@ -233,6 +243,7 @@ export async function stage0Candidates(db: Db, opts: Stage0Options = {}): Promis
         roleTargetClause("jobs"),
         titleRegexExclusionSql("jobs"),
         languageOkClause("jobs"),
+        gigExclusionClause("jobs"),
         ...notBlocked,
       ),
     )

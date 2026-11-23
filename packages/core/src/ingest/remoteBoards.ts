@@ -111,53 +111,327 @@ export async function fetchArbeitnow(): Promise<Posting[]> {
   }));
 }
 
-// ---- Himalayas (large remote-only board; JSON API with cursor pagination) ----
+// ---- shared helpers for the structured remote boards ----
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Paging stops once a page's oldest posting is older than this (fresh window + slack). */
+const FRESH_CUTOFF_DAYS = 15;
+const freshCutoffMs = () => Date.now() - FRESH_CUTOFF_DAYS * 86_400_000;
+
+/**
+ * Structured board metadata (employment type, visa, timezone) written as plain
+ * header lines atop the description. The US-access classifier (usRemote.ts) reads
+ * these — structured data beats guessing from prose — and they're useful to read.
+ */
+function withMeta(lines: (string | null | undefined)[], body: string): string {
+  const head = lines.filter((l): l is string => Boolean(l && l.trim()));
+  return head.length ? `${head.join("\n")}\n\n${body}` : body;
+}
+
+/** "Timezone: UTC-8 to UTC-5 (US hours)" for a restricted offset list; null when
+ *  unrestricted (Himalayas lists ~37 offsets for "any timezone"). */
+function timezoneNote(tz: number[] | undefined): string | null {
+  if (!tz || tz.length === 0 || tz.length >= 30) return null;
+  const min = Math.min(...tz);
+  const max = Math.max(...tz);
+  const fmt = (n: number) => `UTC${n >= 0 ? "+" : ""}${n}`;
+  const us = max <= -3 && min >= -10;
+  const ist = tz.some((t) => Math.abs(t - 5.5) <= 1.5);
+  return `Timezone: ${fmt(min)} to ${fmt(max)}${us ? " (US hours)" : ""}${ist ? " (IST-friendly)" : ""}`;
+}
+
+// ---- Himalayas (large remote-only board; feed + country search) ----
 interface HimalayasJob {
   title: string;
   companyName?: string;
   applicationLink?: string;
   guid?: string;
+  employmentType?: string;
   locationRestrictions?: string[];
+  timezoneRestrictions?: number[];
   description?: string;
   pubDate?: number; // unix seconds
+}
+
+/** Search terms for the India-eligible sweep (each paged newest-first). */
+const HIMALAYAS_INDIA_QUERIES = ["engineer", "developer", "machine learning"];
+
+function himalayasPosting(j: HimalayasJob, id: string): Posting {
+  // locationRestrictions is the ALLOWED-countries set — exactly what the geo
+  // allowlist wants ("India"/"Germany"/… present = eligible; empty = worldwide).
+  const location = j.locationRestrictions?.length ? j.locationRestrictions.join(", ") : "Remote";
+  return {
+    company: j.companyName || "Unknown",
+    title: j.title,
+    location,
+    remoteType: "remote",
+    applyUrl: j.applicationLink || j.guid || "",
+    externalId: `himalayas-${id}`,
+    descriptionMd: withMeta(
+      [
+        j.employmentType ? `Employment type: ${j.employmentType}` : null,
+        timezoneNote(j.timezoneRestrictions),
+      ],
+      htmlToMarkdown(j.description ?? ""),
+    ),
+    postedAt: j.pubDate ? new Date(j.pubDate * 1000) : null,
+  };
+}
+
+/** Himalayas headers. The keyless API is rate-limited (429 after ~40 quick
+ *  calls); a free developer key (himalayas.app/signup/developer) lifts that —
+ *  optional, read from HIMALAYAS_API_KEY. */
+function himalayasHeaders(): Record<string, string> {
+  const key = process.env.HIMALAYAS_API_KEY;
+  return key
+    ? { "user-agent": BROWSER_UA, authorization: `Bearer ${key}` }
+    : { "user-agent": BROWSER_UA };
 }
 
 export async function fetchHimalayas(): Promise<Posting[]> {
   const out: Posting[] = [];
   const seen = new Set<string>();
+  const add = (j: HimalayasJob) => {
+    const id = j.guid || j.applicationLink || `${j.companyName}-${j.title}`;
+    if (!j.title || seen.has(id)) return;
+    seen.add(id);
+    out.push(himalayasPosting(j, id));
+  };
+
+  // 1) newest-first firehose — a handful of pages covers the fresh window.
   let cursor: string | undefined;
-  // newest-first feed; a handful of pages covers the fresh window. The geo gate
-  // drops the many non-eligible (US-only etc.) rows at query time.
   for (let page = 0; page < 6; page++) {
     const url =
       `https://himalayas.app/jobs/api?limit=250` +
       (cursor ? `&cursor=${encodeURIComponent(cursor)}` : "");
     const data = await fetchJson<{ jobs?: HimalayasJob[]; nextCursor?: string }>(url, {
       timeoutMs: 25_000,
-      headers: { "user-agent": BROWSER_UA },
+      headers: himalayasHeaders(),
     });
     const jobs = data.jobs ?? [];
     if (jobs.length === 0) break;
-    for (const j of jobs) {
-      const id = j.guid || j.applicationLink || `${j.companyName}-${j.title}`;
-      if (!j.title || seen.has(id)) continue;
-      seen.add(id);
-      // locationRestrictions is the ALLOWED-countries set — exactly what the geo
-      // allowlist wants ("India"/"Germany"/… present = eligible; empty = worldwide).
-      const location = j.locationRestrictions?.length ? j.locationRestrictions.join(", ") : "Remote";
-      out.push({
-        company: j.companyName || "Unknown",
-        title: j.title,
-        location,
-        remoteType: "remote",
-        applyUrl: j.applicationLink || j.guid || "",
-        externalId: `himalayas-${id}`,
-        descriptionMd: htmlToMarkdown(j.description ?? ""),
-        postedAt: j.pubDate ? new Date(j.pubDate * 1000) : null,
-      });
-    }
+    jobs.forEach(add);
     cursor = data.nextCursor;
     if (!cursor) break;
+  }
+
+  // 2) India-eligible sweep: `country=India` returns roles whose allowed
+  //    countries include India OR that are worldwide — the US-company-hiring-
+  //    from-India set the firehose's 1.5k newest rows mostly miss. 20/page,
+  //    newest-first; stop once a page is older than the fresh window.
+  //    Best-effort: a rate limit (or any error) ends the sweep but KEEPS what was
+  //    already collected — it must never throw away the firehose results.
+  const pace = process.env.HIMALAYAS_API_KEY ? 300 : 1200;
+  sweep: for (const q of HIMALAYAS_INDIA_QUERIES) {
+    for (let page = 1; page <= 30; page++) {
+      let jobs: HimalayasJob[];
+      try {
+        const data = await fetchJson<{ jobs?: HimalayasJob[] }>(
+          `https://himalayas.app/jobs/api/search?country=India&sort=recent&q=${encodeURIComponent(q)}&page=${page}`,
+          { timeoutMs: 25_000, headers: himalayasHeaders() },
+        );
+        jobs = data.jobs ?? [];
+      } catch (err) {
+        console.warn(
+          `[himalayas] India sweep stopped at q="${q}" page ${page}: ${err instanceof Error ? err.message.slice(0, 80) : err}`,
+        );
+        break sweep;
+      }
+      if (jobs.length === 0) break;
+      jobs.forEach(add);
+      const oldest = Math.min(...jobs.map((j) => (j.pubDate ?? 0) * 1000));
+      if (oldest < freshCutoffMs()) break;
+      await sleep(pace);
+    }
+  }
+  return out;
+}
+
+// ---- Jobicy (remote board with a structured jobGeo field; cursor-paged API) ----
+interface JobicyJob {
+  id: number | string;
+  url: string;
+  jobTitle: string;
+  companyName?: string;
+  jobType?: string[] | string;
+  jobGeo?: string;
+  jobLevel?: string;
+  jobDescription?: string;
+  pubDate?: string;
+}
+/** US + worldwide + APAC are the geos an India-based contractor can work. */
+const JOBICY_GEOS = ["usa", "anywhere", "apac"];
+const JOBICY_INDUSTRIES = ["engineering", "data-science"];
+
+export async function fetchJobicy(): Promise<Posting[]> {
+  const out: Posting[] = [];
+  const seen = new Set<string>();
+  for (const geo of JOBICY_GEOS) {
+    for (const industry of JOBICY_INDUSTRIES) {
+      let cursor: string | undefined;
+      for (let page = 0; page < 4; page++) {
+        const data = await fetchJson<{ jobs?: JobicyJob[]; nextCursor?: string; hasMore?: boolean }>(
+          `https://jobicy.com/api/v2/remote-jobs?count=100&geo=${geo}&industry=${industry}` +
+            (cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""),
+          { timeoutMs: 25_000, headers: { "user-agent": BROWSER_UA } },
+        );
+        for (const j of data.jobs ?? []) {
+          const id = String(j.id);
+          if (!j.jobTitle || seen.has(id)) continue;
+          seen.add(id);
+          const types = Array.isArray(j.jobType) ? j.jobType : j.jobType ? [j.jobType] : [];
+          out.push({
+            company: j.companyName || "Unknown",
+            title: decodeEntities(j.jobTitle),
+            // jobGeo is the allowed-geo list ("USA", "Canada,  USA", "Anywhere", "APAC")
+            location: (j.jobGeo ?? "Anywhere").replace(/\s*,\s*/g, ", ").trim(),
+            remoteType: "remote",
+            applyUrl: j.url,
+            externalId: `jobicy-${id}`,
+            descriptionMd: withMeta(
+              [types.length ? `Employment type: ${types.join(", ")}` : null],
+              htmlToMarkdown(j.jobDescription ?? ""),
+            ),
+            postedAt: j.pubDate ? new Date(j.pubDate) : null,
+          });
+        }
+        cursor = data.nextCursor;
+        if (!data.hasMore || !cursor) break;
+        await sleep(250);
+      }
+    }
+  }
+  return out;
+}
+
+// ---- Real Work From Anywhere (location-independent only; RSS) ----
+export async function fetchRealWorkFromAnywhere(): Promise<Posting[]> {
+  const xml = await fetchText("https://www.realworkfromanywhere.com/rss.xml", {
+    headers: { "user-agent": BROWSER_UA },
+    timeoutMs: 20_000,
+  });
+  const out: Posting[] = [];
+  const seen = new Set<string>();
+  for (const chunk of xml.split("<item>").slice(1)) {
+    const item = chunk.split("</item>")[0] ?? "";
+    const rawTitle = decodeEntities((xmlTag(item, "title") ?? "").trim());
+    const link = (xmlTag(item, "link") || xmlTag(item, "guid") || "").trim();
+    if (!rawTitle || !link || seen.has(link)) continue;
+    seen.add(link);
+    // titles are "Position at Company"
+    const at = rawTitle.lastIndexOf(" at ");
+    const pub = xmlTag(item, "pubDate");
+    out.push({
+      company: at > 0 ? rawTitle.slice(at + 4).trim() : "Unknown",
+      title: at > 0 ? rawTitle.slice(0, at).trim() : rawTitle,
+      location: "Anywhere in the World", // the board only lists fully location-independent roles
+      remoteType: "remote",
+      applyUrl: link,
+      externalId: `rwfa-${link.split("/").filter(Boolean).pop() ?? link}`,
+      descriptionMd: htmlToMarkdown(xmlTag(item, "description") ?? ""),
+      postedAt: pub ? new Date(pub) : null,
+    });
+  }
+  return out;
+}
+
+// ---- Y Combinator job board (remote; each posting carries a `visa` field) ----
+interface YcPosting {
+  id: number;
+  title: string;
+  url: string; // "/companies/<slug>/jobs/<id>-<slug>"
+  location?: string;
+  type?: string; // "Full-time" | "Contract" | "Internship" …
+  visa?: string; // "US citizen/visa only" | "US citizenship/visa not required" | "Will sponsor"
+  companyName?: string;
+  createdAt?: string; // relative: "6 months", "about 1 year", "5 days"
+}
+const YC_ROLES = ["software-engineer", "science"];
+
+/** YC embeds page props as entity-encoded JSON in `data-page="…"`. */
+function ycPageProps(html: string): Record<string, unknown> | null {
+  const m = html.match(/data-page="([^"]+)"/);
+  if (!m?.[1]) return null;
+  try {
+    return (JSON.parse(decodeEntities(m[1])) as { props?: Record<string, unknown> }).props ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** "about 1 year" / "6 months" / "less than a minute" -> approximate Date. */
+export function relativeAgeToDate(s: string | undefined, now = Date.now()): Date | null {
+  const m = (s ?? "").toLowerCase().match(/(\d+|an?|one)\s*(minute|hour|day|week|month|year)/);
+  if (!m?.[1] || !m[2]) return null;
+  const n = /^\d+$/.test(m[1]) ? Number(m[1]) : 1;
+  const unit: Record<string, number> = {
+    minute: 60_000,
+    hour: 3_600_000,
+    day: 86_400_000,
+    week: 604_800_000,
+    month: 2_592_000_000,
+    year: 31_536_000_000,
+  };
+  return new Date(now - n * (unit[m[2]] ?? 0));
+}
+
+/** Map YC's visa field to a header line the US classifier understands. */
+function ycVisaLine(visa: string | undefined): string | null {
+  const v = (visa ?? "").toLowerCase();
+  if (!v) return null;
+  if (v.includes("not required")) return "Work authorization: not required (open to international candidates)";
+  if (v.includes("citizen/visa only")) return "Work authorization: US citizen or US visa holder only";
+  if (v.includes("sponsor")) return "Work authorization: US visa sponsorship offered (relocation to the US)";
+  return `Work authorization: ${visa}`;
+}
+
+export async function fetchYcJobs(): Promise<Posting[]> {
+  const out: Posting[] = [];
+  const seen = new Set<number>();
+  for (const role of YC_ROLES) {
+    const html = await fetchText(`https://www.ycombinator.com/jobs/role/${role}/remote`, {
+      headers: { "user-agent": BROWSER_UA },
+      timeoutMs: 25_000,
+    });
+    const postings = (ycPageProps(html)?.jobPostings as YcPosting[] | undefined) ?? [];
+    for (const p of postings) {
+      if (!p.title || seen.has(p.id)) continue;
+      seen.add(p.id);
+      const postedAt = relativeAgeToDate(p.createdAt);
+      if (postedAt && postedAt.getTime() < freshCutoffMs() - 45 * 86_400_000) continue; // skip stale
+      // the listing has no description — one detail fetch per (fresh) posting
+      let description = "";
+      try {
+        const detail = ycPageProps(
+          await fetchText(`https://www.ycombinator.com${p.url}`, {
+            headers: { "user-agent": BROWSER_UA },
+            timeoutMs: 20_000,
+          }),
+        );
+        const job = detail?.job as { description?: string } | undefined;
+        description = job?.description ?? "";
+      } catch {
+        // keep the posting even if the detail page fails
+      }
+      await sleep(300);
+      const visaOpen = (p.visa ?? "").toLowerCase().includes("not required");
+      let location = p.location?.trim() || "Remote";
+      // A bare "Remote" YC posting that waives US work authorization is a US
+      // startup hiring internationally — say so, so it lands in the USA view.
+      if (visaOpen && /^remote$/i.test(location)) location = "Remote (US company, international OK)";
+      out.push({
+        company: p.companyName || "Unknown",
+        title: p.title,
+        location,
+        remoteType: "remote",
+        applyUrl: `https://www.ycombinator.com${p.url}`,
+        externalId: `yc-${p.id}`,
+        descriptionMd: withMeta(
+          [p.type ? `Employment type: ${p.type}` : null, ycVisaLine(p.visa)],
+          description.includes("<") ? htmlToMarkdown(description) : description,
+        ),
+        postedAt,
+      });
+    }
   }
   return out;
 }
@@ -288,6 +562,10 @@ export async function ingestRemoteBoards(db: Db): Promise<RemoteBoardsResult> {
     ["wwr", fetchWeWorkRemotely],
     ["workingnomads", fetchWorkingNomads],
     ["nodesk", fetchNoDesk],
+    // US-remote-from-India sources (geo/visa-structured)
+    ["jobicy", fetchJobicy],
+    ["rwfa", fetchRealWorkFromAnywhere],
+    ["yc", fetchYcJobs],
   ];
   for (const [name, fetcher] of sources) {
     try {

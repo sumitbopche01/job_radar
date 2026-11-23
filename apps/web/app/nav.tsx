@@ -9,6 +9,7 @@ const PROFILES = [
 
 const REGIONS = [
   { slug: "", label: "All regions" },
+  { slug: "usa", label: "🇺🇸 USA remote" },
   { slug: "india", label: "India" },
   { slug: "europe", label: "Europe" },
   { slug: "uae", label: "Dubai / UAE" },
@@ -92,7 +93,8 @@ export function TopBar({
         <div className="z-10 flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-line bg-white/70 px-4 py-2 backdrop-blur">
           <span className="mr-1 shrink-0 text-xs font-medium text-neutral-400">Region</span>
           {REGIONS.map((r) => {
-            const isActive = reg === r.slug;
+            // the "include US-only" view is a sub-mode of the USA tab
+            const isActive = reg === r.slug || (r.slug === "usa" && reg === "usa_all");
             return (
               <Link
                 key={r.slug}
@@ -107,6 +109,19 @@ export function TopBar({
               </Link>
             );
           })}
+          {(reg === "usa" || reg === "usa_all") && (
+            <Link
+              href={href(prof, reg === "usa_all" ? "usa" : "usa_all")}
+              title="Also show roles that require US work authorization / residency"
+              className={`ml-2 shrink-0 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors ${
+                reg === "usa_all"
+                  ? "border-rose-300 bg-rose-50 text-rose-700"
+                  : "border-dashed border-neutral-300 bg-white text-neutral-500 hover:bg-neutral-50"
+              }`}
+            >
+              {reg === "usa_all" ? "✓ Including US-only" : "+ Include US-only"}
+            </Link>
+          )}
         </div>
       )}
     </>

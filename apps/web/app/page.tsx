@@ -1,4 +1,4 @@
-import { getTriageQueue, outreachLinks, type Region } from "@job-radar/core";
+import { getTriageQueue, outreachLinks, usAccessOf, type Region } from "@job-radar/core";
 import { db } from "@/lib/db";
 import { TriageClient, type TriageItem } from "./triage-client";
 import { TopBar } from "./nav";
@@ -27,12 +27,19 @@ export default async function TriagePage({
     contacts: outreachLinks(j.companyName, j.title),
     researchContacts: (j.researchContacts ?? null) as TriageItem["researchContacts"],
     researchSummary: j.researchSummary ?? null,
+    usAccess: usAccessOf(j.locationRaw, j.remoteType, j.descriptionMd, j.title),
   }));
 
   return (
     <main className="flex h-dvh flex-col bg-canvas">
       <TopBar activeProfile={profile ?? ""} activeRegion={region ?? ""} page="triage" count={items.length} />
-      <TriageClient items={items} ranked={Boolean(profile)} />
+      <TriageClient
+        items={items}
+        // US views are ordered by access tier (India OK → contract → US hours),
+        // so day dividers would interleave — treat them as ranked like a profile.
+        ranked={Boolean(profile) || region === "usa" || region === "usa_all"}
+        rankLabel={profile ? "by fit" : "by access"}
+      />
     </main>
   );
 }

@@ -438,6 +438,9 @@ async function main() {
         console.log(`  jobs open:   ${s.jobsOpen}`);
         console.log(`  eligible:    ${s.jobsEligible}  (geo: India / remote / Dubai / Singapore)`);
         console.log(`  targeted:    ${s.jobsTargeted}  (geo + engineering role families)`);
+        console.log(
+          `  US remote:   ${s.usPinned} pinned → ${s.usStrict} strict US-only · ${s.usContract} contract-friendly → ${s.usTargeted} in USA tab (targeted)`,
+        );
         console.log(`  duplicates:  ${s.jobsDuplicates}`);
         console.log(`  closed:      ${s.jobsClosed}`);
         console.log(`  new (24h):   ${s.newLast24h}`);
