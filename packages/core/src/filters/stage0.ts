@@ -83,6 +83,43 @@ export const TITLE_BLOCKLIST = [
   "test orchestration",
   "test architect",
   "engineer in test", // "Software Development Engineer in Test" (spelled-out SDET)
+  // electronics / RF / embedded / aerospace-defense (not software)
+  "biosensor",
+  "autosar",
+  "embedded", // "Embedded Software/Electrical Engineer" — NOT "embeddings" (different word)
+  "electrical engineer",
+  "electronics engineer",
+  "electronic warfare",
+  "propulsion",
+  "aerospace",
+  "avionics",
+  "launch support", // "Sentinel System Engineer - Post Launch Support" (defense)
+  // enterprise ERP / CRM / low-code consultancy stacks
+  "microsoft fabric",
+  "dynamics 365",
+  "d365",
+  "salesforce",
+  "servicenow",
+  "pega",
+  "mulesoft",
+  // IT support / sysadmin / desktop (not IC software)
+  "it support",
+  "it specialist",
+  "it spezialist", // German
+  "service desk",
+  "help desk",
+  "helpdesk",
+  "system administrator",
+  "sysadmin",
+  "desktop support",
+  // manufacturing / industrial (not software)
+  "industrial engineer",
+  "fertigungstechniker", // German: production technician
+  "manufacturing engineer",
+  // CMS / low-end web
+  "wordpress",
+  // security-ops spelling the SRE/DevOps block misses
+  "devsecops",
   // field / support engineering (customer-facing, not IC software)
   "field engineer",
   "field application",
@@ -106,8 +143,11 @@ export const TITLE_BLOCKLIST = [
  *   Engineer") but NOT "quality"/"squad" — a substring "qa" would be unsafe.
  * - `\yios\y` matches "iOS" as a whole word ("iOS Engineer") but NOT "studios"/
  *   "scenarios"/"portfolios" — a substring "ios" would be unsafe.
+ * - acronyms that are unsafe as substrings: `sre` (SRE, not "ensure"), `sap`
+ *   (SAP product roles, not "sapient"), `rf` (RF/radio, not "perf"), `mdm`,
+ *   `cdi` (French permanent-contract postings — France-onsite / French-required).
  */
-export const TITLE_BLOCK_REGEX = "\\y(java|qa|ios)\\y";
+export const TITLE_BLOCK_REGEX = "\\y(java|qa|ios|sre|sap|rf|mdm|cdi)\\y";
 
 /** SQL: title is not excluded by the word-boundary regex, keyed to a table alias. */
 export function titleRegexExclusionSql(alias = "jobs") {
@@ -116,7 +156,7 @@ export function titleRegexExclusionSql(alias = "jobs") {
 
 /** JS mirror of the regex exclusion (for tests / in-memory filtering). */
 export function isTitleRegexBlocked(title: string): boolean {
-  return /\b(java|qa|ios)\b/i.test(title ?? "");
+  return /\b(java|qa|ios|sre|sap|rf|mdm|cdi)\b/i.test(title ?? "");
 }
 
 /** JS mirror of the full denylist — substring blocklist OR word-boundary regex. */

@@ -51,6 +51,9 @@ const REJECT_REASONS: Record<string, string> = {
   "6": "company",
   "0": "other",
 };
+// Explicit display order — JS iterates numeric object keys numerically, which would
+// otherwise float "0" (other) to the front.
+const REJECT_ORDER = ["1", "2", "3", "4", "5", "6", "0"];
 
 // ---------- helpers ----------
 function salaryLabel(j: TriageItem): string | null {
@@ -67,10 +70,24 @@ function locLabel(j: TriageItem): string {
   return j.locationRaw ?? j.remoteType;
 }
 
-function dayLabel(iso: string): string {
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Timezone-neutral absolute label — identical on server and client (uses UTC
+ *  getters + fixed month names), so it is safe to render during SSR/hydration. */
+function absShort(iso: string): string {
   const d = new Date(iso);
-  const today = new Date();
-  const yest = new Date();
+  return `${MONTHS[d.getUTCMonth()] ?? ""} ${d.getUTCDate()}`;
+}
+
+/** Day bucket for the list dividers. `now` is null until the client mounts, so
+ *  SSR and the first client render both fall back to the TZ-neutral absolute
+ *  label — no hydration mismatch (the Docker container is UTC, the browser is
+ *  not, and "Today"/"Yesterday" would otherwise disagree across that boundary). */
+function dayLabel(iso: string, now: number | null): string {
+  if (now === null) return absShort(iso);
+  const d = new Date(iso);
+  const today = new Date(now);
+  const yest = new Date(now);
   yest.setDate(today.getDate() - 1);
   const key = d.toDateString();
   if (key === today.toDateString()) return "Today";
@@ -78,8 +95,9 @@ function dayLabel(iso: string): string {
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
-function relTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+function relTime(iso: string, now: number | null): string {
+  if (now === null) return absShort(iso);
+  const diff = now - new Date(iso).getTime();
   const d = Math.floor(diff / 86400000);
   if (d >= 1) return `${d}d ago`;
   const h = Math.floor(diff / 3600000);
@@ -111,6 +129,8 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
   const [searching, setSearching] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [lastAction, setLastAction] = useState<{ id: string; verb: string } | null>(null);
+  // null until mounted — keeps SSR and first client render identical (see dayLabel).
+  const [now, setNow] = useState<number | null>(null);
   const [, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
@@ -129,6 +149,8 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
 
   const clampedIndex = Math.min(selected, Math.max(0, visible.length - 1));
   const current = visible[clampedIndex];
+
+  useEffect(() => setNow(Date.now()), []);
 
   useEffect(() => {
     if (current) rowRefs.current.get(current.id)?.scrollIntoView({ block: "nearest" });
@@ -245,8 +267,11 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
           {visible.length === 0 && <EmptyState hasItems={items.length > 0} />}
           {visible.map((j, i) => {
             const prev = visible[i - 1];
-            const day = dayLabel(j.postedAt ?? j.firstSeenAt);
-            const showDay = !ranked && day !== (prev ? dayLabel(prev.postedAt ?? prev.firstSeenAt) : null);
+            const day = dayLabel(j.postedAt ?? j.firstSeenAt, now);
+            const showDay =
+              now !== null &&
+              !ranked &&
+              day !== (prev ? dayLabel(prev.postedAt ?? prev.firstSeenAt, now) : null);
             const isSel = i === clampedIndex;
             const sal = salaryLabel(j);
             return (
@@ -291,7 +316,7 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
                         {j.remoteType === "remote" ? "Remote" : j.remoteType}
                       </Tag>
                       <Tag tone="plain">{j.source}</Tag>
-                      <span className="text-[11px] text-neutral-400">{relTime(j.postedAt ?? j.firstSeenAt)}</span>
+                      <span className="text-[11px] text-neutral-400">{relTime(j.postedAt ?? j.firstSeenAt, now)}</span>
                     </div>
                   </div>
                 </button>
@@ -324,7 +349,7 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
                         )}
                         <Tag tone="plain">{current.source}</Tag>
                         <span className="text-xs text-neutral-400">
-                          posted {relTime(current.postedAt ?? current.firstSeenAt)}
+                          posted {relTime(current.postedAt ?? current.firstSeenAt, now)}
                         </span>
                       </div>
                     </div>
@@ -372,7 +397,7 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
                 </div>
               </div>
             </div>
-            <Footer rejecting={rejecting} />
+            <Footer />
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-neutral-400">
@@ -381,7 +406,66 @@ export function TriageClient({ items, ranked }: { items: TriageItem[]; ranked?: 
         )}
       </div>
 
+      {rejecting && current && (
+        <RejectDialog
+          job={current}
+          onPick={(key) => act(() => rejectAction(current.id, REJECT_REASONS[key]), current.id, "Rejected")}
+          onCancel={() => setRejecting(false)}
+        />
+      )}
+
       {lastAction && <Toast verb={lastAction.verb} onUndo={undo} />}
+    </div>
+  );
+}
+
+function RejectDialog({
+  job,
+  onPick,
+  onCancel,
+}: {
+  job: TriageItem;
+  onPick: (key: string) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/50 p-4"
+      onClick={onCancel}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Reject reason"
+    >
+      <div
+        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold text-neutral-900">Why pass on this?</h3>
+        <p className="mt-0.5 line-clamp-1 text-sm text-neutral-500">
+          {job.title} · {job.companyName}
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {REJECT_ORDER.map((key) => (
+            <button
+              key={key}
+              onClick={() => onPick(key)}
+              className="flex items-center justify-between gap-2 rounded-xl border border-line px-3 py-2.5 text-left text-sm font-medium text-neutral-700 transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
+            >
+              <span className="capitalize">{REJECT_REASONS[key]}</span>
+              <Kbd>{key}</Kbd>
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-xs text-neutral-400">Press a number · Esc to cancel</span>
+          <button
+            onClick={onCancel}
+            className="rounded-full px-3 py-1.5 text-sm font-medium text-neutral-500 transition-colors hover:bg-neutral-100"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -594,40 +678,32 @@ function MatchCard({ rubric, score }: { rubric: Rubric; score: number | null }) 
   );
 }
 
-function Footer({ rejecting }: { rejecting: boolean }) {
+function Footer() {
   return (
     <div className="shrink-0 border-t border-line bg-white px-4 py-2.5 text-xs text-neutral-500">
-      {rejecting ? (
-        <span className="font-medium text-rose-600">
-          Reject reason — <Kbd>1</Kbd> seniority · <Kbd>2</Kbd> location/tz · <Kbd>3</Kbd> comp ·{" "}
-          <Kbd>4</Kbd> stack · <Kbd>5</Kbd> domain · <Kbd>6</Kbd> company · <Kbd>0</Kbd> other ·{" "}
-          <Kbd>Esc</Kbd> cancel
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span>
+          <Kbd>j</Kbd> <Kbd>k</Kbd> move
         </span>
-      ) : (
-        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span>
-            <Kbd>j</Kbd> <Kbd>k</Kbd> move
-          </span>
-          <span>
-            <Kbd>s</Kbd> shortlist
-          </span>
-          <span>
-            <Kbd>x</Kbd> reject
-          </span>
-          <span>
-            <Kbd>a</Kbd> applied
-          </span>
-          <span>
-            <Kbd>u</Kbd> undo
-          </span>
-          <span>
-            <Kbd>o</Kbd>/<Kbd>↵</Kbd> open
-          </span>
-          <span>
-            <Kbd>/</Kbd> search
-          </span>
+        <span>
+          <Kbd>s</Kbd> shortlist
         </span>
-      )}
+        <span>
+          <Kbd>x</Kbd> reject
+        </span>
+        <span>
+          <Kbd>a</Kbd> applied
+        </span>
+        <span>
+          <Kbd>u</Kbd> undo
+        </span>
+        <span>
+          <Kbd>o</Kbd>/<Kbd>↵</Kbd> open
+        </span>
+        <span>
+          <Kbd>/</Kbd> search
+        </span>
+      </span>
     </div>
   );
 }

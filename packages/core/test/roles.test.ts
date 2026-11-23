@@ -59,4 +59,29 @@ describe("TITLE_BLOCKLIST substring stacks", () => {
     expect(isTitleBlocked("Senior .NET Full-stack Developer")).toBe(true);
     expect(isTitleBlocked("Dotnet Backend Engineer")).toBe(true);
   });
+
+  it("blocks non-software domains (hardware / ERP / IT-support / industrial)", () => {
+    expect(isTitleBlocked("Biosensor Research Scientist (Electrochemical sensors)")).toBe(true);
+    expect(isTitleBlocked("AUTOSAR Embedded Software Engineer (m/w/d)")).toBe(true);
+    expect(isTitleBlocked("Embedded Electrical Engineer - SoM")).toBe(true);
+    expect(isTitleBlocked("RF Electronics Engineer (Electronic Warfare)")).toBe(true);
+    expect(isTitleBlocked("Propulsion AIT Principal Engineer")).toBe(true);
+    expect(isTitleBlocked("SAP Transportation Management Solution Architect (f/m/d)")).toBe(true);
+    expect(isTitleBlocked("Dynamics 365 CRM Solution Architect")).toBe(true);
+    expect(isTitleBlocked("Microsoft Fabric Data Engineer (Freelance)")).toBe(true);
+    expect(isTitleBlocked("IT Spezialist / IT Supporter / System Engineer")).toBe(true);
+    expect(isTitleBlocked("Fertigungstechniker / Industrial Engineering (m/w/d)")).toBe(true);
+    expect(isTitleBlocked("Wordpress Web Developer at CFO Insights")).toBe(true);
+    expect(isTitleBlocked("DevSecOps Engineer (m/w/d) – full remote möglich")).toBe(true);
+    expect(isTitleBlocked("SRE - Security Engineer")).toBe(true);
+    expect(isTitleBlocked("Forward Deployed Engineer - CDI Paris - Theodo")).toBe(true);
+  });
+
+  it("does NOT block legit AI/backend roles that share a fragment", () => {
+    expect(isTitleBlocked("Machine Learning Engineer, Embeddings")).toBe(false); // "embeddings" ≠ "embedded"
+    expect(isTitleBlocked("Staff Backend Engineer")).toBe(false);
+    expect(isTitleBlocked("Senior AI Engineer")).toBe(false);
+    expect(isTitleBlocked("Performance Engineer")).toBe(false); // "perf" ≠ "rf"
+    expect(isTitleBlocked("Full-Stack Engineer")).toBe(false);
+  });
 });
